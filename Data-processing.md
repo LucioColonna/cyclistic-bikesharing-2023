@@ -129,8 +129,13 @@ skimmer <- skim_without_charts(df) %>%
 
 View(skimmer)
 ```
+<br>
 
-![](Data-processing_files/figure-gfm/plot%20available%20data-1.png)<!-- -->
+<p align="center">
+  <img src="./img/img_01.png" width="80%">
+</p>
+
+<br>
 
 > Well, results are quite disappointing 😥: <br>
 >
