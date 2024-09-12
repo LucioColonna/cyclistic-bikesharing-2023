@@ -940,19 +940,27 @@ Verify the correlation:
     ## $member
     ## [1] -0.878
 
-<br> \>Key findings: \> \>**Casual Riders:** \> \> - The **correlation**
-between days of the week ride count and average duration is **0.822**
-\> - This strong positive correlation suggests that **as the number of
-rides increases**, the **average duration** of those rides also **tends
-to increase** \> - Casual riders may be engaging in **longer rides when
-they ride more frequently**, indicating a pattern of **recreational or
-use for leisure** \> \>**Member Riders:** \> \>- The **correlation**
-between day of the week ride count and average duration is **-0.877**
-\>- This strong negative correlation indicates that **as the number of
-rides increases**, the **average duration** of those rides **tends to
-decrease** \>- This pattern is consistent with members using the service
-primarily for **commuting** or **short trips**, where higher frequency
-corresponds with shorter ride times
+<br>
+
+>Key findings: 
+>
+>**Casual Riders:** 
+>- The **correlation** between days of the week ride count and average duration is **0.822**
+>- This strong positive correlation suggests that **as the number of
+>rides increases**, the **average duration** of those rides also **tends
+>to increase**
+>- Casual riders may be engaging in **longer rides when
+>they ride more frequently**, indicating a pattern of **recreational or
+>use for leisure**
+>
+>**Member Riders:** 
+>- The **correlation** between day of the week ride count and average duration is **-0.877**
+>- This strong negative correlation indicates that **as the number of
+>rides increases**, the **average duration** of those rides **tends to
+>decrease**
+>- This pattern is consistent with members using the service
+>primarily for **commuting** or **short trips**, where higher frequency
+>corresponds with shorter ride times
 
 <br>
 
