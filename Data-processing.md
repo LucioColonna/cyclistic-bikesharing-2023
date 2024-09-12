@@ -127,8 +127,26 @@ skimmer <- skim_without_charts(df) %>%
     select(skim_variable, class, total_available, everything()) %>%
     arrange(factor(skim_variable, levels = colnames(df)))
 
-View(skimmer)
+kableExtra::kable(skimmer)
 ```
+<br>
+
+| skim_variable      | class     | total_available |   NA |  empty | total_empty_or_NA | percentage_not_available | percentage_available |
+|:-------------------|:----------|----------------:|-----:|-------:|------------------:|-------------------------:|---------------------:|
+| ride_id            | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| rideable_type      | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| started_at         | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| ended_at           | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| start_station_name | character |         4844161 |    0 | 875716 |            875716 |                    15.31 |                84.69 |
+| start_station_id   | character |         4844029 |    0 | 875848 |            875848 |                    15.31 |                84.69 |
+| end_station_name   | character |         4790675 |    0 | 929202 |            929202 |                    16.25 |                83.75 |
+| end_station_id     | character |         4790534 |    0 | 929343 |            929343 |                    16.25 |                83.75 |
+| start_lat          | numeric   |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| start_lng          | numeric   |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| end_lat            | numeric   |         5712887 | 6990 |      0 |              6990 |                     0.12 |                99.88 |
+| end_lng            | numeric   |         5712887 | 6990 |      0 |              6990 |                     0.12 |                99.88 |
+| member_casual      | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+
 <br>
 
 <p align="center">
@@ -152,7 +170,12 @@ View(skimmer)
 >   contain empty or NA values, but please note that this is not a
 >   practice to be taken lightly
 
-------------------------------------------------------------------------
+<br>
+
+---
+
+<br>
+
 
 First, I’m replacing any empty strings with NA values across the entire
 data frame. Then, I’m dropping any rows that contain missing values,
