@@ -877,24 +877,31 @@ identify round trips by comparing start and end station IDs
 
 ``` r
 df <- df %>%
-    mutate(started_at = as.POSIXct(started_at, format = "%Y-%m-%d %H:%M:%S",
-        tz = "UTC"), ended_at = as.POSIXct(ended_at, format = "%Y-%m-%d %H:%M:%S",
-        tz = "UTC"), duration_minutes = as.numeric(round((ended_at -
-        started_at)/60, 2)), quarter_name = factor(case_when(quarter(started_at) ==
-        1 ~ "1st Quarter", quarter(started_at) == 2 ~ "2nd Quarter",
-        quarter(started_at) == 3 ~ "3rd Quarter", quarter(started_at) ==
-            4 ~ "4th Quarter"), levels = c("1st Quarter", "2nd Quarter",
-        "3rd Quarter", "4th Quarter")), month_name = factor(month.abb[month(started_at)],
-        levels = month.abb), day_of_week_name = factor(wday(started_at,
-        label = TRUE, abbr = TRUE, week_start = 1, locale = "en_US.UTF-8")),
-        hour_of_day = hour(started_at), weekend = ifelse(day_of_week_name %in%
-            c("Sat", "Sun"), "Weekend", "Monday to Friday"),
-        round_trip = if_else(start_station_id == end_station_id,
-            TRUE, FALSE), trip_distance_km = distGeo(cbind(start_lng,
-            start_lat), cbind(end_lng, end_lat))/1000, trip_speed_kmph = round(trip_distance_km/duration_minutes *
-            60, 2), member_casual = factor(member_casual, levels = c("casual",
-            "member"))  # modify existing feature
-)
+    mutate(
+        started_at = as.POSIXct(started_at, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+        ended_at = as.POSIXct(ended_at, format = "%Y-%m-%d %H:%M:%S", tz = "UTC"),
+        duration_minutes = as.numeric(round((ended_at - started_at) / 60, 2)),
+        quarter_name = factor(
+            case_when(
+                quarter(started_at) == 1 ~ "1st Quarter",
+                quarter(started_at) == 2 ~ "2nd Quarter",
+                quarter(started_at) == 3 ~ "3rd Quarter",
+                quarter(started_at) == 4 ~ "4th Quarter"
+            ),
+            levels = c("1st Quarter", "2nd Quarter", "3rd Quarter", "4th Quarter")
+        ),
+        month_name = factor(month.abb[month(started_at)], levels = month.abb),
+        day_of_week_name = factor(
+            wday(started_at, label = TRUE, abbr = TRUE, week_start = 1, locale = "en_US.UTF-8")
+        ),
+        hour_of_day = hour(started_at),
+        weekend = ifelse(day_of_week_name %in% c("Sat", "Sun"), "Weekend", "Monday to Friday"),
+        round_trip = if_else(start_station_id == end_station_id, TRUE, FALSE),
+        trip_distance_km = distGeo(cbind(start_lng, start_lat), cbind(end_lng, end_lat)) / 1000,
+        trip_speed_kmph = round(trip_distance_km / duration_minutes * 60, 2),
+        member_casual = factor(member_casual, levels = c("casual", "member"))  # modify existing feature
+    )
+
 ```
 
 Let’s check the updated df:
