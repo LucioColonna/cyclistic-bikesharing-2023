@@ -1,0 +1,3 @@
+*.ipynb linguist-language=R
+*.html linguist-vendored
+*.Rmd linguist-language=R

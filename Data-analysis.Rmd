@@ -1,0 +1,3061 @@
+---
+title: "Cyclistic 2023 | Data Analysis"
+author: "Lucio Colonna"
+date: "`r paste('<br>Last updated: ',format(Sys.Date(), '%A %B %d, %Y'),'')`"
+output: 
+  github_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r global options, include=FALSE}
+knitr::opts_chunk$set(eval = TRUE, echo = FALSE)
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
+```
+
+```{r libraries and setup, include=FALSE}
+# import libraries
+packages <- c(
+  "formatR",
+  "tidyverse",
+  "treemapify",
+  "skimr",
+  "scales",
+  "ggtext",
+  "geosphere",
+  "patchwork",
+  "RColorBrewer",
+  "leaflet",
+  "htmlwidgets",
+  "htmltools",
+  "IRdisplay",
+  "sf"
+  )
+
+
+for (pkg in packages) {
+  suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}
+
+# ----------------------------------------------------- #
+
+# Sets dplyr to suppress summarise messages and disables scientific notation
+
+options(dplyr.summarise.inform = FALSE, scipen = 999)
+
+# ----------------------------------------------------- #
+
+# This function calculates the Mode (most frequent value) of a vector x
+
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+# ----------------------------------------------------- #
+
+# Import df file (output of the data processing phase)
+
+df <- read_rds("Source/df.rds")
+```
+
+```{r external resources, include=FALSE}
+# external resources
+
+chicago_monthly_avg_temp <- data.frame(
+  month_name = month.abb,
+  avg_temp_Fahrenheit = c(32.3, 33.9, 38.8, 51.8, 62.4, 70.8, 75.7, 74.3, 69.5, 57.1, 42.9, 39)
+) %>%
+  mutate(month_name = factor(month_name, levels = month.abb))
+
+# ---------------------------------------------------------- #
+
+chicago_monthly_avg_prcp <- data.frame(
+  month_name = month.abb,
+  avg_prcp_inches = c(0.08, 0.14, 0.12, 0.07, 0.02, 0.08, 0.25, 0.04, 0.11, 0.07, 0.03, 0.1)
+) %>%
+  mutate(month_name = factor(month_name, levels = month.abb))
+
+# ---------------------------------------------------------- #
+
+map_of_chicago <- sf::st_read("https://data.cityofchicago.org/resource/y6yq-dbs2.geojson", quiet = TRUE)
+```
+
+```{r themes definition, include=FALSE}
+# themes definition
+
+# ---------------------------------------------------------- #
+
+theme_simple <- theme_void() +
+  theme(
+    plot.margin = margin(l = 30, r = 40, b=20),
+    plot.title = element_text(size = 14),
+    plot.subtitle = element_text(size =14),
+    legend.title = element_text(size=12),
+    legend.text = element_text(size=12),
+    strip.text = element_text(size = 14)
+  )
+
+# ---------------------------------------------------------- #
+
+theme_count <- 
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.ontop = TRUE,
+    panel.grid.major.y = element_line(color = "#978d8d", linetype = "dotted", linewidth = 0.3),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12, margin = margin (t = -10)),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 14),
+    axis.ticks = element_blank()
+  ) 
+
+# ---------------------------------------------------------- #
+
+theme_count_large <- 
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.ontop = TRUE,
+    panel.grid.major.y = element_line(color = "#978d8d", linetype = "dotted", linewidth = 0.3),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.title.x = element_text(size = 16),
+    axis.title.y = element_text(size = 16),
+    axis.text.x = element_text(size = 12, margin = margin (t = -10)),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    axis.ticks = element_blank()
+  ) 
+
+# ---------------------------------------------------------- #
+
+theme_count_flipped <-
+   theme(
+    panel.background = element_rect(fill = NA),
+    panel.border = element_blank(),
+    panel.ontop = TRUE,
+    plot.title = element_text(size = 14),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_line(color = "#978d8d", linetype = "dotted", linewidth = 0.3),
+    panel.grid.minor.x = element_blank(),
+    axis.text.x = element_text(size = 12),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = 12, margin = margin(r = -10)),
+    axis.ticks = element_blank(),
+    strip.text = element_text(size = 14),
+    strip.background = element_rect(fill = NA),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    plot.margin = margin(l = 40, r = 40)
+  ) 
+
+# ---------------------------------------------------------- #
+
+theme_duration <- theme_minimal() + 
+theme(
+    legend.position = "none",
+    strip.text = element_text(size = 14, margin = margin(t=10, b=20)),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 14, vjust = 0.3),
+    plot.title = element_text(size = 14),
+    plot.subtitle = element_text(size = 14),
+    panel.grid = element_blank()
+  ) 
+
+# ---------------------------------------------------------- #
+
+theme_weekend <- 
+    theme(
+    panel.background = element_rect(fill = NA),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 12),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "right",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    strip.text.x = element_text(size = 14),
+    plot.margin = margin(l= 20, r = 20),
+    plot.title = element_text(size = 14),
+    plot.subtitle = element_text(size = 14),
+  )
+
+# ---------------------------------------------------------- #
+
+theme_weekend_flipped <- 
+  theme(
+    panel.background = element_rect(fill = NA),
+    axis.ticks = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = 14, margin = margin(r = -25)),
+    panel.grid.major = element_blank(),
+    plot.title = element_text(size = 16),
+    plot.subtitle = element_text(size = 14),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    plot.margin = margin(l = 10, r = 50, b=20),
+    strip.background = element_rect(fill = "transparent"),
+    strip.text = element_text(size = 14)
+  )
+  
+# ---------------------------------------------------------- #
+
+  theme_line <- theme_minimal() +
+    theme(
+    plot.title = element_text(size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    axis.title.x = element_text(size = 16, vjust = -0.5),
+    axis.title.y = element_text(size = 16, vjust = 0.9),
+    axis.text.x = element_text(size = 14),
+    axis.text.y = element_text(size = 14),
+    panel.grid.major.x = element_line(color = "#978d8d", linetype = "dotted", linewidth = 0.5),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    strip.text = element_text(size = 14),
+    strip.background = element_blank(),
+    plot.margin = margin(r=20, b=20)
+  )
+
+# ---------------------------------------------------------- #
+
+  theme_heatmap <- 
+    theme(
+    axis.text = element_text(size = 14),
+    strip.background = element_blank(),
+    panel.spacing = unit(2, "cm", data = NULL),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    strip.text.x = element_text(margin = margin(t = 20, b = 20), size = 14),
+    plot.title = element_text(size = 16),
+    panel.background = element_rect(fill = NA),
+    plot.background = element_blank(),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+  )
+
+# ---------------------------------------------------------- #
+
+theme_stations <- 
+    theme(
+    plot.title = element_text(size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.position = NULL,
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    axis.text.y = element_text(size = 14, margin = margin(r = -10)),
+    axis.text.x = element_blank(),
+    panel.background = element_rect(fill = NA),
+    plot.margin = margin(l = 20, b = 30)
+  )
+
+# ---------------------------------------------------------- #
+
+  theme_map <- theme_void() +
+    theme(
+    plot.title = element_text(size = 16),
+    plot.subtitle = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 14),
+    plot.margin = margin(l = 20, r = 20)
+    )
+```
+
+```{r functions definition, include=FALSE}
+# functions definition
+
+# ---------------------------------------------------------- #
+
+
+# Function: calculate_quartiles
+# Description: creates a dataframe containing quartile values for a specified column in the input data, optionally filtered by a specified column value
+# Arguments:
+# - data: The input dataframe containing the data.
+# - filter_col: (Optional) The name of the column used for filtering the data.
+# - filter_value: (Optional) The value to filter filter_col by.
+# - value_col: The name of the column for which quartiles are to be calculated.
+
+calculate_quartiles <- function(data, filter_col = NULL, filter_value = NULL, value_col) {
+  if (!is.null(filter_col) && !is.null(filter_value)) {
+    data <- data[data[[filter_col]] == filter_value, ]
+  }
+  
+  quantiles <- quantile(data[[value_col]])
+  
+  quartiles_df <- data.frame(
+    "Q" = c("Q0", "Q1", "Q2", "Q3", "Q4"),
+    "%" = names(quantiles),
+    Value = quantiles,
+    row.names = NULL,
+    check.names = FALSE
+  )
+  
+  return(quartiles_df)
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: format_time
+# Description: converts a hour in 24-hour format to a 12-hour format with AM or PM indication
+# Arguments:
+# - hour: an integer representing the hour in 24-hour format
+
+format_time <- function(hour) {
+  if (hour == 0) {
+    return("12 AM")
+  } else if (hour == 12) {
+    return("12 PM")
+  } else if (hour < 12) {
+    return(sprintf("%01d AM", hour))
+  } else if (hour < 24) {
+    return(sprintf("%01d PM", hour - 12))
+  } else {
+    return("12 AM")
+  }
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_rides_vs_duration
+# Description: creates a combo chart to display rides count (v-bar chart) vs mean duration of trip (line chart)
+# Arguments:
+# - df: DataFrame with the data to plot
+# - time: Time variable for the x-axis (e.g. month_name)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars in the plot
+# - max_count: Maximum value for the y scale (rides count)
+# - show_legend: Boolean to show or hide the legend (default: TRUE)
+# - show_y_axis: Boolean to show or hide the y axis title (default: TRUE)
+
+plot_rides_vs_duration <- function(df, time, title, subtitle, fill_color, max_count, show_legend = TRUE, show_y_axis = TRUE) {
+  
+  scale_factor  <- 8
+  
+  p <- ggplot(df, aes(x = {{ time }})) +
+    geom_bar(aes(y = count / 1000), stat = "identity", fill = fill_color, alpha = 0.3) +
+    geom_line(aes(y = mean * scale_factor, group = 1, color = "mean duration"), linewidth = 1.3) +
+    geom_point(aes(y = mean * scale_factor, color = "mean duration"), size = 3) +
+    geom_text(aes(label = round(mean,0), y = mean * scale_factor), vjust = -2, size = 5, color = "red", fontface = "bold") +
+    labs(x = "", y = "\n# of rides (.000)\n", title = title, subtitle = subtitle) +
+        coord_cartesian(ylim = c(0, max_count)) +
+    scale_color_manual(values = c("mean duration" = "red"), name = "") + 
+    theme_count +
+    theme(axis.text.x = element_text(size = 14, margin = margin(t=-20)))
+  
+  if (!show_legend) {
+    p <- p + theme(legend.position = "none")
+  }
+  
+  if (!show_y_axis) {
+      p <- p + theme(axis.title.y = element_blank())
+    }
+
+  return(p)
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_stations
+# Description: Creates a h-bar plot to visualize station data based on member type and (optionally) station type (start, end).
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars or points in the plot
+# - station_type: Optional; the type of station (default: NULL)
+
+plot_stations <- function(data, member_type, title, subtitle, fill_color, station_type = NULL) {
+
+  # Filter data based on the member type and optionally the station type
+  if (!is.null(station_type)) {
+    filtered_data <- data %>% filter(type == station_type & member_casual == member_type)
+  } else {
+    filtered_data <- data %>% filter(member_casual == member_type)
+  }
+
+  y_max <- max(data$count) * 1.2 # Ensure consistent y-axis limits
+
+  ggplot(filtered_data) +
+    geom_col(aes(x = reorder(station, count), y = count), fill = fill_color) +
+    coord_flip() +
+    labs(title = title, subtitle = subtitle) +
+    geom_text(aes(x = reorder(station, count), y = count, label = comma(count)), position = position_dodge(width = 0.7), vjust = 0.5, hjust = -0.1, size = 5) +
+    scale_y_continuous(limits = c(0, y_max), breaks = seq(0, y_max, by = 5000)) +
+    theme_stations
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_routes
+# Description: Creates a h-bar plot to visualize the most common routes based on member type
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars
+
+plot_routes <- function(data, member_type, title, subtitle, fill_color) {
+  
+  filtered_data_routes <- data %>% filter(member_casual == member_type)
+  
+  y_max <- max(data$count) *1.1 # Ensure consistent y-axis limits
+  
+  ggplot(filtered_data_routes) +
+    geom_col(aes(x = reorder(route, count), y = count), fill = fill_color) +
+    coord_flip() +
+    labs(
+      title = title, subtitle = subtitle,
+      x = "\nstart station \u2192 end station"
+    ) +
+    geom_text(aes(x = reorder(route, count), y = count, label = comma(count)), position = position_dodge(width = 0.7), vjust = 0.5, hjust = -0.2, size = 5) +
+    scale_y_continuous(limits = c(0, y_max), breaks = seq(0, y_max, by = 5000)) + 
+    theme_stations
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_heatmap
+# Description: Creates a heatmap plot to visualize ride counts based on the given x and y variables.
+# Arguments:
+# - df: DataFrame with the data to plot
+# - x_var: Variable for the x-axis (e.g. hour_of_day)
+# - y_var: Variable for the y-axis (e.g. day_of_week)
+# - title: Main title of the heatmap
+# - max_count: Maximum value for the ride count scale
+
+plot_heatmap <- function(df, x_var, y_var, title, max_count) {
+  x_var_str <- as.character(substitute(x_var))
+  
+  p <- df %>%
+    group_by({{x_var}}, {{y_var}}, member_casual) %>% 
+    summarise(count = n()) %>% 
+    ggplot(aes(x = {{x_var}}, y = fct_rev({{y_var}}), fill = count)) +
+    geom_tile(color = "white", linewidth = 0.1) +
+    facet_wrap(~member_casual, strip.position = "bottom", labeller = labeller(.default = toupper), scales = "free_y") +
+    scale_fill_gradient(low = "#aaffa3", high = "#0e3400", labels = scales::comma, limits = c(1, max_count)) +
+    labs(title = title, x = "", y = "", fill = "rides count\n") +
+    theme_heatmap +
+    theme(
+      axis.text.x = if (x_var_str == "hour_of_day") {
+        element_text(angle = 90, hjust = 0.7)
+      } else {
+        element_text()
+      }
+    )
+  # conditional control to manage continuous x_var (i.e. hour_of_day)
+  if (x_var_str == "hour_of_day") {
+    p <- p + scale_x_continuous(position = "top", breaks = 0:23, labels = function(x) {sapply(x, format_time)})
+  } else {
+    p <- p + scale_x_discrete(position = "top")
+  }
+  
+  return(p)
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_map_usage
+# Description: creates a map to visualize which stations are predominantly used by each membership type (casual or member)
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership ("casual" or "member")
+# - palette: Color palette for the fill aesthetic
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+
+plot_map_usage <- function(data, member_type, palette, title, subtitle) { 
+
+fill_var <- ifelse(member_type == "casual", "percentage_casual", "percentage_member")
+
+ggplot() +
+  geom_sf(data = map_of_chicago, fill = "#f1f0f0") +
+  geom_point(data = data, mapping = aes(x = start_lng, y = start_lat, fill = get(fill_var)), pch = 21, size = 6) +
+  scale_fill_distiller(palette = palette, trans = "reverse", labels = scales::percent, limits = c(1, 0)) +
+  labs(title = title, subtitle = subtitle, fill = paste(str_to_title(member_type), "\nstation usage\n")) +
+  theme_map
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_map_domination
+# Description: Creates a plot to visualize the most used stations based on member type.
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+
+plot_map_domination <- function(data, member_type, title) { 
+  
+  data_subset <- data %>% 
+    filter(winner == member_type)
+  
+  max_size <- max(most_popular$count_casual, most_popular$count_member)
+  
+  size_var <- ifelse(member_type == "casual", "count_casual", "count_member")
+  
+  ggplot() +
+    geom_sf(data = map_of_chicago, fill = "#f1f0f0") +
+    geom_point(data = data_subset, aes(x = start_lng, y = start_lat, size = get(size_var), fill = winner), pch = 21, color = "black", alpha = 0.9) +
+    labs(title = title, subtitle = toupper(member_type))+
+    scale_size_area(max_size = 25, limits = c(1, max_size), labels = scales::comma) + 
+    scale_fill_manual(values = c("casual" = "salmon", "member" = "turquoise")) + 
+    guides(
+      fill = "none",
+      size = guide_legend(title = "\nRides count", order = 2)
+    ) +
+    theme_map
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: slice_df_freq
+# Description: processes dataframe merged_stations_all to filter and summarize the count of casual members at various stations. It performs several transformations on the data, such as grouping, counting, renaming, sorting, and coloring, based on a specified frequency slice
+# Arguments:
+# - slice_freq: An integer that determines how many top stations should be highlighted in red
+
+slice_df_freq <- function(slice_freq) {
+  df <- merged_stations_all %>%
+    filter(member_casual == "casual") %>%
+    group_by(id, station) %>%
+    summarise(count = sum(count), .groups = "drop") %>%
+    arrange(desc(count)) %>%
+    mutate(
+      # optimize station names to make sure they fit into the treemap tiles
+      station = str_replace_all(station, " St", ""),
+      station = str_replace_all(station, " Blvd", ""),
+      station = str_replace_all(station, " Dr", ""),
+      station = str_replace_all(station, " Ave", ""),
+      station = str_replace_all(station, " Ln", ""),
+      station = str_replace_all(station, " Rd", "")
+    ) %>%
+    mutate(color = if_else(row_number() <= slice_freq, "red", "grey")) %>%
+    mutate(total = sum(if_else(color == "red", count, 0)))
+  
+  return(df)
+}
+
+
+# ---------------------------------------------------------- #
+
+
+# Function: plot_treemap
+# Description: creates a treemap visualization from the dataframe produced by slice_df_freq, showing the distribution of counts across stations. The treemap highlights top stations in red and others in grey.
+# Arguments:
+# df: The input dataframe containing station information, count, and color.
+# title: The title of the treemap plot
+# subtitle: The subtitle of the treemap plot
+
+plot_treemap <- function(df, title, subtitle){
+  ggplot(df, aes(area = count, fill = color, label = station)) +
+    geom_treemap(color = "white", size = 1.5) +
+    geom_treemap_text(color = "white", place = "center", grow = TRUE, reflow = TRUE, min.size = 0) +
+    scale_fill_manual(values = c("red" = "red", "grey" = "grey")) +
+    labs(
+      title = title,
+      subtitle = subtitle
+    ) +
+    theme(
+      plot.title = element_text(size = 14),
+      plot.subtitle = element_text(size = 14),
+      plot.background = element_rect(fill = "white"),
+      panel.background = element_rect(fill = "white"),
+      panel.border = element_rect(color = "white", fill = NA, linewidth = 0.7),
+      legend.position = "none",
+      plot.margin = margin(l=20, r=20)
+    )
+}
+```
+
+<br>
+
+# Summary
+
+<span style="color: #0047AB;">📌 <strong>Overview of 2023</strong></span>
+
+ - Total rides count, average ride duration and average trip distance for each member group [throughout 2023](#1-overview-of-2023)
+ - [Total cycling minutes](#11-total-minutes-spent-cycling): sum of the total minutes spent cycling for each member group throughout the entire year
+ - [Round trips](#12-round-trips): analysis of round trips made by riders in terms of ride count and average duration
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Ride Duration</strong></span>
+
+- Analysis of ride duration [quartiles](#2-by-ride-duration) (overall and by member group)
+- [All Trips](#21-all-trips): analysis of the duration of all trips, divided into **1-hour** bins
+- [Up to 60 Minutes](#22-up-to-60-minutes): focus on trips lasting **up to 60 minutes**, that constitute **~97% of all rides**
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Distance</strong></span>
+
+- Analysis of trips distance [quartiles](#3-by-distance) (overall and by member group)
+- [All Trips](#31-all-trips): analysis of all trips based on distance, divided into **1-km** bins
+- [Up to 10 km](#32-up-to-10-km): focus on trips covering distances **up to 10 kilometers**, which account for approximately **~99% of all rides** (excluding round trips as they have 0 km distance; otherwise, it would be approximately **95%**)
+- Analysis of relationship between [trip distance and ride duration](#33-vs-ride-duration)
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Quarter</strong></span>
+
+- Analysis of cycling trips on a [quarterly basis](#4-by-quarter)
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Month</strong></span>
+
+- Analysis of the distribution of rides [by month](#5-by-month)
+- [VS weather conditions](#51-vs-weather-conditions): examination of monthly cycling trips in relation to **weather conditions** of Chicago in 2023 (avg. temperature, avg. precipitations)
+- [VS ride duration](#52-vs-ride-duration): comparison of monthly cycling trips with average ride duration
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Day of the Week</strong></span>
+
+- Analysis of the distribution of rides [by day of the week](#6-by-day-of-the-week)
+- [Weekdays vs Weekends](#61-weekdays-vs-weekends): comparison of cycling patterns between weekdays and weekends
+- [VS ride duration](#62-vs-ride-duration): comparison of rides with average ride duration for each day of the week
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Hour</strong></span>
+
+- Analysis of the distribution of rides [by hour of the day](#7-by-hour), with identification of **peak usage times**
+- [VS ride duration](#71-vs-ride-duration): examination of cycling trips by hour in relation to ride duration
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>Heatmaps</strong></span>
+
+- Creation of [heatmaps](#8-heatmaps) to visualize cycling data across the following temporal dimensions:
+
+    - Month VS Day of the week
+    - Day of the Week VS Hour of the day
+    - Month VS Hour of the day
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Bike type</strong></span>
+
+- Analyze [bike type usage](#9-by-bike-type) between the member groups
+- [Weekdays vs. Weekends](#91-vs-weekdaysweekends): analyze bike types usage differences between weekdays and weekends
+- [VS distance](#92-vs-distance): examine average trip distances by bike type
+- [VS speed](#93-vs-speed): Assess the relationship between bike types and average trip speeds
+
+<hr style="border: none; border-top: 1px solid #ccc; margin: 25px 0;">
+
+<span style="color: #0047AB;">📌 <strong>By Station</strong></span>
+
+- Analyze the [geographical distribution and usage rate of start stations](#101-geographical-distribution-and-usage), regardless of whether the rides pertain to casual or member users, to identify areas with low, moderate, and high ride density in the city
+- Identification of the [top 20 most frequently used start and end stations](#102-top-start-and-end-stations) for both member groups
+- Analysis of the [top 20 most popular routes](#103-top-routes) for both casual and member
+- Analysis of start stations [predominantly used by casual users or members](#104-user-predominance) beyond defined thresholds
+- Identification and examination of the [most used stations](#105-most-used-stations-start-or-end), whether as starting or ending points
+
+<br>
+
+## 1. Overview of 2023
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+The first step in our analysis is to gather useful data for the entire year of 2023. Specifically, I will retrieve data for both members and casual users, focusing on:
+
+- Total number of rides
+- Average ride duration
+- Average distance travelled
+
+
+For the average distance travelled, I will exclude round trips, as their distance is 0 and could compromise the results:
+<br>
+
+```{r, fig.width=12, fig.height=8}
+# total number of rides
+p0 <- df %>%
+  group_by(member_casual) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count/sum(count)) %>% 
+  ggplot(aes(x = member_casual, y = count, fill = member_casual, label = paste((comma(count)),"\n",percent(percentage)))) + 
+    geom_col() +
+    geom_text(aes(label = paste((comma(count)),"\n",percent(percentage)), vjust = 1.3), size = 5, color = "white", fontface = "bold") +
+    labs(title= "\n2023: Total number of rides\n", fill = "Member Type") +
+    theme_simple
+
+
+# average ride duration
+p1 <- df %>% 
+group_by(member_casual) %>% 
+summarise(avg_ride_minutes = round(mean(duration_minutes),1)) %>% 
+ggplot(aes(x = member_casual, y = avg_ride_minutes, fill = member_casual)) +
+  geom_col() +
+  labs(title = "\n2023: What was the average trip duration (in minutes)?\n", fill = "Member Type") +
+  geom_text(aes(label = avg_ride_minutes), vjust = 1.5, size = 5, color = "white", fontface = "bold")+
+  theme_simple
+
+
+# average distance travelled (round trips excluded, as the distance is 0)
+p2 <- df %>% 
+  filter(round_trip == FALSE) %>% 
+  group_by(member_casual) %>% 
+  summarise(avg_distance_km = mean(trip_distance_km)) %>% 
+ggplot(aes(x = member_casual, y = avg_distance_km, fill = member_casual)) +
+  geom_col() +
+  labs(
+    title= "2023: What was the average distance travelled?", 
+    fill = "Member Type", 
+    subtitle = "N.B. round trips not included\n") +
+  geom_text(aes(label = paste(round(avg_distance_km,2), "km")), vjust = 1.5, size = 5, color = "white", fontface = "bold") +
+  theme_simple +
+  theme(plot.subtitle = element_text(face = "italic"))
+
+options(repr.plot.width=12, repr.plot.height=8)
+
+(p0 | (p1/p2)) + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+```
+<br>
+
+>Key findings:
+>
+>- **Members** account for a larger proportion of total rides (**65%**) compared to casual users (**35%**). This is a positive sign for the company, as members are considered more profitable
+>- **Members** prefer **shorter, more frequent rides** (which is typical for a subscription-based model), while **casual** users tend to have **longer ride durations**
+>- **Casual** users show **longer trip durations** and **slightly greater distances**. This could be due to casual users being more likely to use the bikes for leisurely activities, while members might use them for quick, practical commutes
+
+<br>
+
+***
+
+<br>
+
+### 1.1 Total minutes spent cycling
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=7, fig.height=6}
+options(repr.plot.width=7, repr.plot.height=6)
+
+df %>% 
+group_by(member_casual) %>% 
+summarise(total_minutes =sum(duration_minutes)) %>% 
+ggplot(aes(x = member_casual, y = total_minutes, fill = member_casual)) +
+  geom_col() +
+  labs(title= "\n2023: Who spent the most time on a bike (in minutes)?\n", fill = "Member Type") +
+   geom_text(aes(label = comma(round(total_minutes, 0))), vjust = 1.5, size = 5, color = "white", fontface = "bold")+
+  theme_simple
+```
+<br>
+
+> Key findings:
+>
+> -  Despite members having more rides (as shown in the previous data), casual users collectively spent more time on bikes. This indicates that **casual** users tend to take **longer trips** compared to members
+> - **Members**, while having a lower total time spent compared to casual users, may be using the service **more efficiently** for **shorter** and **more frequent trips**, likely for **commuting** purposes
+
+<br>
+
+***
+
+<br>
+
+### 1.2 Round trips
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=10, fig.height=6}
+df_round_trips <- df %>%
+  group_by(member_casual) %>%
+  summarise(
+    round_trips = sum(round_trip),
+    avg_duration_round_trips = round(mean(duration_minutes[round_trip == TRUE]), 2),
+    total_trips = n()
+  ) %>%
+  mutate(percentage = round(round_trips / total_trips * 100, 2))
+
+# count of round trips (and % on total rides)
+p_round_trips_count <- 
+  ggplot(df_round_trips, aes(x = toupper(member_casual), y = round_trips, fill = member_casual)) +
+    geom_bar(stat = "identity", color = "white", linewidth = 1.5, width = 1) +
+    labs(title = "\n2023: Round Trips Analysis\n", subtitle = "Count (% on total user rides)", fill = "Member Type") +
+    theme_void() +
+    theme(legend.position = "none") +
+    geom_text(aes(label = paste0(comma(round_trips), "\n", "(", percent(percentage / 100, accuracy = 1), ")")), 
+              vjust = 1.2, size = 5, color = "white", fontface = "bold")+
+    theme_simple +
+    theme(legend.position = "none")
+
+# average duration of round trips
+p_round_trips_duration <- 
+  ggplot(df_round_trips, aes(x = toupper(member_casual), y = avg_duration_round_trips, fill = member_casual)) +
+    geom_bar(stat = "identity", color = "white", linewidth = 1.5, width = 1) +
+    labs(title = "\n", subtitle = "\nAverage duration (in minutes)\n", fill = "Member Type") +
+    geom_text(aes(label = avg_duration_round_trips), vjust = 1.5, size = 5, color = "white", fontface = "bold")+
+    theme_simple
+
+options(repr.plot.width=10, repr.plot.height=6)
+
+p_round_trips_count + p_round_trips_duration + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+```
+<br>
+
+> Key findings:
+>
+> - **Casual** users make a larger proportion of their rides as **round trips** (**8%**) compared to **members** (**3%**). This might suggest that casual users are more likely to use the service for leisure or sightseeing, where they return to their starting point
+>- The **average duration** of round trips for **casual** users is **significantly longer** (**44.24 minutes**) than for **members** (**23.31 minutes**). This aligns with the intuition that casual users generally take longer trips
+> - **Members** tend to have **shorter round trips**, which might indicate that their usage is more **practical** and **time-efficient**, possibly for commuting or running quick errands
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 2. By Ride Duration
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+ <!-- In order to deeply analyze the ride duration of trips, I will first calculate the **quartiles** of the duration in minutes for all data and then separately for both members and casual users: -->
+
+```{r}
+# Function: calculate_quartiles
+# Description: creates a dataframe containing quartile values for a specified column in the input data, optionally filtered by a specified column value
+# Arguments:
+# - data: The input dataframe containing the data
+# - filter_col: (Optional) The name of the column used for filtering the data
+# - filter_value: (Optional) The value to filter filter_col by
+# - value_col: The name of the column for which quartiles are to be calculated
+
+# ---------------------------------------------------------- #
+
+quartiles_duration_all <- calculate_quartiles(df, value_col = "duration_minutes")
+quartiles_duration_casual <- calculate_quartiles(df, "member_casual", "casual", "duration_minutes")
+quartiles_duration_member <- calculate_quartiles(df, "member_casual", "member", "duration_minutes")
+
+cat("Quartiles of duration_minutes (ALL DATA):\n")
+print(quartiles_duration_all, row.names = FALSE)
+cat("\n")
+cat("Quartiles of duration_minutes (CASUAL):\n")
+print(quartiles_duration_casual, row.names = FALSE)
+cat("\n")
+cat("Quartiles of duration_minutes (MEMBER):\n")
+print(quartiles_duration_member, row.names = FALSE)
+```
+<br>
+
+>Key findings:
+>
+> - 50% of all rides lasted **10 minutes or less**
+> - The **median** duration for **casual users (13.00 minutes)** is notably **higher** than that of **members (8.78 minutes)**
+> - The trip **durations** for casual users are more **spread out**, with the **Q3 at 24.43 minutes**, compared to **14.90 minutes** for **members**
+  > - The **maximum trip durations are similar** across both casual and members, indicating that there are some very long trips taken by both, but they do not significantly impact the overall distribution
+>
+> Overall, the data above reaffirms the previous observations: **casual** users tend to have **longer trip durations** while **members** have **shorter, more frequent trips**.
+
+<!-- I now want to analyze more in depth the duration of trips. To do so, I intend to divide the data into manageable intervals, hoping I can gain insights into how rides are distributed. -->
+
+<br>
+
+***
+
+<br>
+
+### 2.1 All trips
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+I will start dividing the data into **1-hour intervals**.
+
+<!-- To achieve this, I'm utilizing the ```cut``` function, through which I'll partition the data into intervals in the format of $(n, n+1]$ hours: -->
+
+```{r}
+# Calculate the maximum of duration minutes 
+max_duration <- max(df$duration_minutes)
+
+# Create the break points for the intervals of 60 minutes
+breaks_hr <- seq(0, max_duration + 60, by = 60)
+
+# Create labels for intervals
+labels_minutes <- paste(head(breaks_hr, -1), tail(breaks_hr, -1), sep = " to ")
+labels_hours <- paste(head(breaks_hr, -1) / 60, tail(breaks_hr, -1) / 60, sep = " to ")
+
+# Use the cut function to create intervals in the form (n, n+1]
+df$duration_group_minutes <- cut(df$duration_minutes, breaks = breaks_hr, labels = labels_minutes, include.lowest = FALSE, right = TRUE)
+df$duration_group_hours <- cut(df$duration_minutes, breaks = breaks_hr, labels = labels_hours, include.lowest = FALSE, right = TRUE)
+
+# ---------------------------------------------------------- #
+
+df_summary_hour_bins <- df %>%
+ group_by(duration_group_minutes, duration_group_hours) %>%
+ summarise(count = n(), .groups="drop") %>%
+ mutate(
+     percentage = count / sum(count) * 100,
+     count_remaining = rev(cumsum(rev(count))),
+     percentage_remaining = rev(cumsum(rev(percentage)))) %>% 
+ rename(
+    `duration_minutes_(from-to]` = duration_group_minutes,
+    `duration_hours_(from-to]` = duration_group_hours)
+
+View(df_summary_hour_bins)
+```
+
+<br>
+
+<!-- Next, I'll generate a density plot illustrating the duration of rides (I will apply a filter on ```duration_minutes``` to improve readibility): -->
+
+```{r, fig.width=13, fig.height=8}
+options(repr.plot.width = 13, repr.plot.height = 8)
+
+df %>% 
+filter(duration_minutes <= 180) %>% 
+ggplot(aes(x = duration_minutes, fill = member_casual)) +
+  geom_density(alpha = 0.5, linewidth = 0.5) +
+  scale_x_continuous(breaks = seq(0, 180, by = 60)) +
+  labs(title = "\n2023: Density of ride length\n", x = "\ntrip duration (minutes)\n", y = "\ndensity\n\n", ) +
+  theme_line
+```
+
+>Key findings:
+>
+> - Rides lasting up to 60 minutes constitute the vast majority, comprising ~97.25% of all rides (more than 4 mil. recorded instances)
+> - As the **duration increases**, the number of rides **decreases significantly**: only 2.75% of rides lasted more than 1 hour
+> - Overall, the data shows a **skewed distribution**, with the majority of rides being relatively short in duration, while longer rides are less frequent
+
+<br>
+
+***
+
+<br>
+
+### 2.2 Up to 60 minutes
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+Now let's "zoom in" on the rides that lasted between 1 and 60 minutes, that constiute **~97% of all rides**. 
+
+<!-- I am going to use the same approach as before, but this time I am slicing the data in intervals of $[n, n+1)$ minutes, considering that 1 is the minimum duration: -->
+
+```{r}
+# Create the break points for the intervals from 1 to 60 minutes
+breaks_min <- seq(1, 60, by = 1)
+
+# Create labels for intervals
+labels_minutes_1_to_60 <- paste(head(breaks_min, -1), tail(breaks_min, -1), sep = " to ")
+
+# Use the cut function to create intervals in the form [n, n+1)
+df$duration_group_minutes_1_to_60 <- cut(df$duration_minutes, breaks = breaks_min, labels = labels_minutes_1_to_60, include.lowest = TRUE, right = FALSE)
+
+# Calculate total counts for each user group
+total_counts <- df %>%
+  group_by(member_casual) %>%
+  summarise(total_count = n(), .groups = 'drop')
+
+df_summary_minutes_1_to_60 <- df %>%
+  filter(duration_minutes < 60) %>%
+  group_by(member_casual, duration_group_minutes_1_to_60) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  left_join(total_counts, by = "member_casual") %>%
+  group_by(member_casual) %>%
+  mutate(p_on_total_user = count / total_count * 100,
+         p_user_cumulated = cumsum(p_on_total_user),
+         # "+++" indicates an increase of rides compared to previous interval, "---" indicates a decrease
+         p_variation = ifelse(p_on_total_user - lag(p_on_total_user) > 0, "+++", "---")) %>%
+  select(-total_count) %>%
+  rename(`duration_minutes_[from-to)` = duration_group_minutes_1_to_60) %>%
+  # show only first 30 intervals for each user type
+  group_by(member_casual) %>%
+  slice_head(n = 30) %>%
+  View()
+```
+
+<br>
+
+<!-- Now, let's plot a bar chart to visualize the duration from 1 to 60 minutes according to the intervals defined above, **overlaying** the observations of members and casual riders: -->
+
+```{r, fig.width=18, fig.height=10}
+# breaks and labels to be used for plot
+breaks_60 <- seq(1, 61, by = 1)
+labels_60 <- seq(1, 60)
+
+df$duration_group_minutes_1_to_60 <- cut(df$duration_minutes, breaks = breaks_60, labels = labels_60, include.lowest = TRUE, right = FALSE) # Breaking down minutes intervals as [n, n+1)
+
+options(repr.plot.width = 18, repr.plot.height = 10)
+
+df %>%
+  filter(duration_minutes < 60) %>%
+  group_by(member_casual, duration_group_minutes_1_to_60) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = duration_group_minutes_1_to_60, y = count / 1000, fill = member_casual)) +
+       geom_bar(data = . %>% filter(member_casual == "member"), 
+                aes(y = count / 1000), 
+                stat = "identity", alpha = 0.5, position = "stack") +
+       geom_bar(data = . %>% filter(member_casual == "casual"), 
+                aes(y = count / 1000), 
+                stat = "identity", alpha = 0.5, position = "stack") +
+       scale_fill_manual(values = c("casual" = "salmon", "member" = "turquoise")) +
+       labs(title = "\n\n2023 : Distribution of trip durations up to 60 minutes (~97% of all rides)\n",
+            x = "\n\ntrip duration intervals (minutes)\n\n", 
+            y = "\nride count (.000)\n\n", 
+            fill = "Member type\n") +
+       annotate("text", x = Inf, y = Inf, label = "Note: The x-axis number represents the lower limit 'n' of duration interval [n, n+1)", hjust = 1, vjust = 1, fontface = "italic", size = 5.5) +
+       guides(fill = guide_legend(reverse = TRUE)) +
+       theme_count_large
+```
+<br>
+
+> Key findings:
+>
+>__Casual__:
+>
+>   - 1 to 7 minutes: there is a **progressive increase** in the number of rides
+>   - 6 to 7 minutes: **peak usage** with **79,910** rides that account for **5.40%** of the total casual rides
+>   - 7 minutes onward: the rides count begins to drop with the percentage of total rides decreasing consistently in each interval
+>
+>__Members__:
+>
+> - 1 to 5 minutes: There is a consistent increase in the number of rides.
+> - 5 to 6 minutes: **peak usage** with **219,381** rides that account for **8.16%** of the total member rides
+> - 6 minutes onward: as for casual, a continuous decline in ride count is observed, with percentages decreasing gradually
+> - For members specifically, it is important to highlight that according to the [**company's pricing policy**](https://divvybikes.com/pricing), the **first 45 minutes are free**, after which a **per-minute fee is applied**. This reinforces the concept that there is a  decline in the number of rides as the duration increases
+>
+>__Overall__:
+>
+> - Casual users and members both exhibit peak usage at different points within their respective durations. Casual users peak slightly later, between **6 to 7 minutes**, while members peak earlier, between **4 to 5 minutes**
+> - After their respective peaks, both groups show a **steady decline** in the number of rides, indicating **shorter trips are more common**, and as **trip duration increases**, the **frequency of such trips decreases**
+
+<br>
+
+<!-- Before moving on to the next section, I will remove the columns that were temporarily added for the analysis: -->
+
+```{r, include=FALSE}
+df <- df %>% select(-duration_group_minutes, -duration_group_hours, -duration_group_minutes_1_to_60)
+```
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 3. By Distance
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+To analyze the distance, I will use the same methodology applied in the previous section. However, there are two important points to keep in mind:
+
+- The calculated distances are **approximate** and represent the **straight-line distance** between the start and end stations. This is because the dataset does not include information about the actual distance covered via GPS
+- **Round trips** have a **distance equal to 0** (since the start station is the same as the end station) and therefore have been **filtered out** in this analysis to avoid compromising the results
+
+```{r}
+# Function: calculate_quartiles
+# Description: creates a dataframe containing quartile values for a specified column in the input data, optionally filtered by a specified column value
+# Arguments:
+# - data: The input dataframe containing the data
+# - filter_col: (Optional) The name of the column used for filtering the data
+# - filter_value: (Optional) The value to filter filter_col by
+# - value_col: The name of the column for which quartiles are to be calculated
+
+# ---------------------------------------------------------- #
+
+df_no_round_trips <- df %>% filter(round_trip == FALSE)
+
+quartiles_distance_all <- calculate_quartiles(df_no_round_trips, value_col = "trip_distance_km")
+quartiles_distance_casual <- calculate_quartiles(df_no_round_trips, "member_casual", "casual", "trip_distance_km")
+quartiles_distance_member <- calculate_quartiles(df_no_round_trips, "member_casual", "member", "trip_distance_km")
+
+cat("Quartiles of trip_distance_km (ALL DATA):\n")
+print(quartiles_distance_all, row.names = FALSE)
+cat("\n")
+cat("Quartiles of trip_distance_km (CASUAL):\n")
+print(quartiles_distance_casual, row.names = FALSE)
+cat("\n")
+cat("Quartiles of trip_distance_km (MEMBER):\n")
+print(quartiles_distance_member, row.names = FALSE)
+```
+<br>
+
+> Key findings:
+>
+> - The overall quartiles indicate that **most trips are relatively short**, with the median trip distance being around 1.6 km.
+**Casual** users tend to have **slightly longer trip distances** compared to members
+> - The median (Q2) and 75th percentile (Q3) values for casual users are also higher, indicating a tendency for casual users to engage in longer trips
+> - In short, **casual** users typically take **longer trips** than members. This aligns with the observation that casual users often use the service for leisure or recreational purposes, while members might use it more for commuting and shorter, frequent trips
+
+<br>
+
+***
+
+<br>
+
+### 3.1 All trips
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+This time I will divide the data into **1-km intervals**.
+
+<!-- To achieve this, I'm utilizing the ```cut``` function, through which I'll partition the data into intervals in the format of $(n,n+1]$ km: -->
+
+```{r, include=FALSE}
+# Calculate the maximum of trip distance
+max_distance <- max(df$trip_distance_km)
+
+# Create the break points for the intervals of 60 minutes
+breaks_km <- seq(0, max_distance + 1, by = 1)
+F
+# Create labels for intervals
+labels_km <- paste(head(breaks_km, -1), tail(breaks_km, -1), sep = " to ")
+
+# Use the cut function to create intervals in the form (n, n+1]
+df$distance_group_km <- cut(df$trip_distance_km, breaks = breaks_km, labels = labels_km, include.lowest = FALSE, right = TRUE)
+
+# ---------------------------------------------------------- #
+
+df_summary_km_bins <- df %>%
+ filter(round_trip == FALSE) %>% #filtered out round_trips, as they have 0 km distance
+ group_by(distance_group_km) %>%
+ summarise(count = n(), .groups="drop") %>%
+ mutate(
+     percentage = count / sum(count) * 100,
+     percentage_cumulated = cumsum(percentage),
+     count_remaining = rev(cumsum(rev(count))),
+     percentage_remaining = rev(cumsum(rev(percentage)))) %>% 
+ rename(
+    `distance_km_(from-to]` = distance_group_km)
+
+View(df_summary_km_bins)
+```
+
+<!-- Now I'll generate a density plot illustrating the distance in km of rides (I will apply a filter on ```trip_distance_km``` to improve readibility): -->
+<br>
+
+```{r, fig.width=18, fig.height=8}
+options(repr.plot.width = 18, repr.plot.height = 8)
+
+df %>% 
+filter(round_trip == FALSE, trip_distance_km < 15) %>% 
+ggplot(aes(x = trip_distance_km, fill = member_casual)) +
+  geom_density(alpha = 0.5, linewidth = 0.5) +
+  scale_x_continuous(breaks = seq(0, 15, by = 1)) +
+  labs(title = "\n2023: Density of trip distance", subtitle = "n.b. Round trips not included\n", x = "\ntrip distance (km)\n", y = "\ndensity\n\n", fill = "Member Type") +
+  theme_line
+```
+<br>
+
+>Key findings:
+>
+> - The majority of trips are short, with **60.37% of trips** being **under 2 km**
+> - **As the distance increases**, the **frequency of trips decreases**. For example, trips between 2 to 3 km account for ~17.4%, and trips between 3 to 4 km make up ~9.0%. This trend continues with smaller percentages for longer distances
+> - There is a **long tail** in the distribution indicating that while most trips are short, there are some longer trips. The **percentage of trips** continues to **decrease for distances beyond 5 km**
+> - In short, the data indicates that the **bike-sharing** service is predominantly used for **short-distance trips**, with a significant drop-off in the number of longer trips. This pattern is **typical for urban bike-sharing schemes** where users prefer bikes for short commutes or quick errands
+
+<br>
+
+***
+
+<br>
+
+### 3.2 Up to 10 km
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+Similarly to what done before, let's now focus on the distances **lower than 10 km**, that constitute ~99% of all rides (round trips not included):
+<br>
+
+```{r}
+# Create the break points for the intervals from 1 to 60 minutes
+breaks_km_1_to_10 <- seq(0, 10, by = 1)
+
+# Create labels for intervals
+labels_km_1_to_10 <- paste(head(breaks_km_1_to_10, -1), tail(breaks_km_1_to_10, -1), sep = " to ")
+
+# Use the cut function to create intervals in the form (n, n+1]
+df$distance_group_km_1_to_10 <- cut(df$trip_distance_km, breaks = breaks_km_1_to_10, labels = labels_km_1_to_10, include.lowest = FALSE, right = TRUE)
+
+df_distance_km_1_to_10 <- df %>%
+  filter(trip_distance_km <= 10, round_trip == FALSE) %>% 
+  group_by(member_casual, distance_group_km_1_to_10) %>%
+  summarise(count = n(), .groups = "drop")  %>% 
+  left_join(total_counts, by = "member_casual") %>%
+  group_by(member_casual) %>%
+  mutate(p_on_total_user = count / total_count * 100,
+         p_user_cumulated = cumsum(p_on_total_user),
+         # "+++" indicates an increase of rides compared to previous interval, "---" indicates a decrease
+         p_variation = ifelse(p_on_total_user - lag(p_on_total_user) > 0, "+++", "---")) %>% 
+  rename(`trip_distance_km_(from-to]` = distance_group_km_1_to_10) %>%
+  group_by(member_casual) %>%
+  select(-total_count) %>% 
+  View
+```
+
+```{r, fig.width=18, fig.height=10}
+options(repr.plot.width = 18, repr.plot.height = 10)
+
+df %>%
+filter(trip_distance_km < 10, round_trip == FALSE) %>% 
+  group_by(member_casual, distance_group_km_1_to_10) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = distance_group_km_1_to_10, y = count / 1000, fill = member_casual)) +
+      geom_bar(aes(y = count / 1000), stat = "identity", alpha = 0.5, position = "dodge") +
+       labs(title = "\n\n2023 : Distribution of trip distances up to 10 km (~99% of all non round trips)",
+            subtitle = "n.b. Round trips not included\n",
+            x = "\n\ntrip distance intervals (km)\n\n", 
+            y = "\nride count (.000)\n\n", 
+            fill = "Member type\n") +
+       annotate("text", x = Inf, y = Inf, label = "Note: The intervals represented on the x-axis are in the form (n, n+1]", hjust = 1, vjust = 1, fontface = "italic", size = 5.5) +
+       theme_count_large
+```
+
+>Key findings:
+>
+> - **Both casual and members** have the **highest number of trips** in the **1 to 2 km** range.
+> - **Members** show a **steeper decline** in trip counts after the 1 to 2 km range, suggesting a stronger **preference for short trips**
+> - The counts for trips **beyond 2 km** decrease significantly for both groups
+
+<br>
+
+<!-- Again, before moving on to the next section, I will remove the column that were temporarily added for the analysis: -->
+
+```{r, include=FALSE}
+df <- df %>% select(-distance_group_km, -distance_group_km_1_to_10)
+```
+
+<br>
+
+***
+
+<br>
+
+### 3.3 VS ride duration
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=18, fig.height=10}
+options(repr.plot.width = 18, repr.plot.height = 10)
+
+df %>%
+filter(round_trip == FALSE) %>% 
+ggplot(aes(x = duration_minutes, y = trip_distance_km, color = member_casual)) +
+  geom_point() +
+  labs(
+    title = "\n2023: Relationship between trip distance and duration",
+    subtitle = "n.b. Round trips not included\n",
+    x = "\ntrip duration (minutes)\n",
+    y = "\ntrip distance (km)\n",
+    color = "Member Type"
+  ) +
+  scale_x_continuous(breaks = seq(0, max(df$duration_minutes) + 60, by = 60)) +
+  scale_y_continuous(breaks = seq(0, max(df$trip_distance_km) + 5, by = 5)) +
+  theme_line
+```
+
+>Key findings:
+>
+> - **Both user groups** predominantly take **short trips** in terms of **distance and duration**, as indicated by the clustering of the majority of trips in the lower left quadrant of the plot
+> - **Casual** users show a **wider spread** in trip durations and distances compared to members. This suggests that casual users are more likely to take both very short and very long trips
+> - **Members** tend to have **more consistent trip patterns** with shorter durations and distances
+
+<br>
+
+***
+
+<br>
+
+## 4. By Quarter
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Let's break down the ride count by quarter and member groups: -->
+
+```{r, fig.width=10, fig.height=8}
+df_summary_quarter <- df %>%
+  group_by(quarter_name, member_casual) %>% 
+  count()
+
+options(repr.plot.width = 10, repr.plot.height = 8)
+
+ggplot(df_summary_quarter, aes(x = fct_rev(quarter_name), y = n / 1000, fill = member_casual, group = member_casual)) +
+  geom_col(position = position_dodge(.7), width = 0.7) +
+  geom_text(aes(label = round(n / 1000, 2), colour = member_casual), position = position_dodge(width = 0.7), vjust = 0.5, hjust = -0.1, show.legend = FALSE, size = 4) +
+  labs(x = "", y = "\n\n# of rides (.000)\n", fill = "Member type\n", title = "\n\n2023: Rides distribution by quarter\n") +
+  coord_flip() +
+  scale_fill_manual(values = c("member" = "turquoise", "casual" = "salmon")) +
+  scale_y_continuous(limits = c(0, max(df_summary_quarter$n) / 1000 + 100), breaks = seq(0, max(df_summary_quarter$n) / 1000 + 100, by = 100)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_count_flipped
+```
+
+>Key findings:
+>
+> - Both user groups show **seasonal variation** with an **increased activity** in the **warmer months** (second and third quarters), and a peak in the third quarter 
+> - The **first** and **fourth** quarters have the **lowest ride counts** for both groups, likely due to less favorable **weather conditions**
+> - The **gap** between members and casual users fluctuates over time, being **widest in the first quarter**
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 5. By Month
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Let's break down the ride count by month and member groups: -->
+
+```{r, fig.width=11, fig.height=10}
+df_summary_month <- df %>%
+    group_by(month_name, member_casual)  %>% 
+    count()
+
+options(repr.plot.width=11, repr.plot.height=10)
+
+ggplot(df_summary_month, aes(x = fct_rev(month_name), y = n / 1000, fill = member_casual)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.7) +
+  labs(x = "", y = "\n\n# of rides (.000)\n", fill = "Member type\n", title = "\n\n2023: Rides distribution by month\n") +
+  geom_text(aes(label=round(n/1000,2), colour = member_casual), position=position_dodge(width=0.7), vjust=0.5, hjust =-0.1, show.legend = FALSE, size = 4.5) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, max(df_summary_month$n/1000)+50), breaks = seq(0, max(df_summary_month$n/1000)+50, by = 50)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_count_flipped
+```
+<br>
+
+>Key findings:
+>
+>- both user groups show a clear **seasonal pattern**, with trip numbers increasing in the **warmer months (April to September)** and decreasing in the **colder months (October to March)**
+>- the **peak month** for members is August while for casual users it is July
+>- the lowest trip counts occur in the **winter months** (January, February, December), reflecting reduced activity likely due to less favorable weather conditions
+
+<br>
+
+***
+
+<br>
+
+### 5.1 VS weather conditions
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Previosuly we've hypothesized that there might be a seasonal trend in bike-sharing likely influenced by **weather conditions**. Now, let's see if we can provide a "scientific" basis for this assumption. 
+
+To do this, I intend to correlate the monthly ride data with the **monthly average temperatures** and the **monthly average precipitations** recorded in Chicago in 2023. -->
+
+<!-- Starting from the source dataframes, I am first converting "Farenheit" to "Celsius" (for temperature) and "inches" to "cm" (for precipitations). Then, I will merge them with the ```df_summary_month``` by using the ```left_join``` function: -->
+
+```{r, include=FALSE}
+ # Convert "Fahrenheit" to "Celsius" and round to 2 decimals
+df_temp_month <- chicago_monthly_avg_temp %>%
+  mutate(mean_temp = round((avg_temp_Fahrenheit - 32) * 5/9, 2)) %>%
+  select(-avg_temp_Fahrenheit)
+
+ # Convert "inches" to "centimetres" and round to 2 decimals
+df_prcp_month <- chicago_monthly_avg_prcp %>%
+mutate(mean_prcp = round(avg_prcp_inches*2.54, 2)) %>%
+select(-avg_prcp_inches)
+
+# join DF with weather information
+df_combined_weather <- df_summary_month %>%
+  left_join(df_temp_month, by = "month_name") %>%
+  left_join(df_prcp_month, by = "month_name")
+
+head(df_combined_weather)
+```
+
+```{r, fig.width=18, fig.height=9}
+options(repr.plot.width = 18, repr.plot.height = 9)
+
+# scale factors used to make sure lines are represented correctly
+scale_factor_temp <- 9
+scale_factor_prcp <- 80
+
+ggplot(df_combined_weather, aes(x = month_name, y = n / 1000, fill = member_casual, group = member_casual)) +
+
+  # monthly rides count
+  geom_col(position = position_dodge(0.8), width = 0.8, alpha = 0.2) +
+
+  # monthly avg. temperature line
+  geom_line(aes(y = mean_temp * scale_factor_temp, color = "Avg. monthly temperature (°C)"), linewidth = 1) +
+  geom_point(aes(y = mean_temp * scale_factor_temp, color = "Avg. monthly temperature (°C)"), size = 3, show.legend = FALSE) +
+  geom_text(aes(y = mean_temp * scale_factor_temp, label = paste(round(mean_temp, 1), "°C"), color = "Avg. monthly temperature (°C)"), vjust = -0.5, hjust = -0.5, show.legend = FALSE) +
+
+  # monthly avg. precipitations line
+  geom_line(aes(y = mean_prcp * scale_factor_prcp, color = "Avg. monthly precipitations (cm)"), linewidth = 1) +
+  geom_point(aes(y = mean_prcp * scale_factor_prcp, color = "Avg. monthly precipitations (cm)"), size = 3, show.legend = FALSE) +
+  geom_text(aes(y = mean_prcp * scale_factor_prcp, label = paste(round(mean_prcp, 2), "cm"), color = "Avg. monthly precipitations (cm)"), vjust = -0.5, hjust = -0.5, show.legend = FALSE) +
+
+  labs(x = "", y = "\n\n# of rides (.000)\n\n", fill = "Member type", title = "\n2023: Monthly rides distribution vs weather conditions in Chicago (avg. temperature, avg. precipitations)") +
+  scale_y_continuous(limits = c(0, max(df_combined_weather$n / 1000) + 50), breaks = seq(0, max(df_combined_weather$n / 1000) + 50, by = 50)) +
+  scale_color_manual(values = c("red", "blue"), name = "") +
+  guides(color = guide_legend(reverse = TRUE)) +
+  theme_count + 
+  theme(legend.text = element_text(size = 12),
+  legend.title = element_text(size = 12),
+  plot.title = element_text(size = 16))
+```
+
+<br>
+
+***
+
+<br>
+
+Let's see if the variables are correlated:
+
+```{r}
+df_combined_weather %>%
+  group_by(member_casual, month_name) %>%
+  summarise(avg_temp = mean(mean_temp), mean_prcp = mean(mean_prcp), count = sum(n), .groups = 'drop') %>%
+  split(.$member_casual) %>%
+  lapply(function(df) {
+    temp_corr <- df %>%
+      summarise(correlation_temp = round(cor(avg_temp, count), 3)) %>%
+      pull(correlation_temp)
+    
+    prcp_corr <- df %>%
+      summarise(correlation_prcp = round(cor(mean_prcp, count), 3)) %>%
+      pull(correlation_prcp)
+    
+    list(temp_correlation = temp_corr, prcp_correlation = prcp_corr)
+  })
+```
+<br>
+
+>Key findings:
+>
+> Correlation with **avg. temperatures**:
+>
+> - The coefficients of **0.994** and **0.984** for respectively **casual** and **member** riders suggests a **very strong positive correlation** between the average temperature and the number of rides per month
+> - This indicates that **as the temperature increases**, there is a significant **increase in the number of bike rides taken**. It aligns with the intuitive understanding that warmer weather tends to encourage outdoor activities like biking
+>
+> Correlation with **avg. precipitations**:
+>
+> - The coefficients of **0.127** and **0.001** for respectively **casual** and **member** riders indicates that **precipitations** have a **minimal influence** on the number of rides taken
+> - For members specifically, the correlation is essentially zero, implying that precipitation has virtually **no impact** on their ride count
+
+<br>
+
+***
+
+<br>
+
+### 5.2 VS ride duration
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Let's now explore the average ride duration by month for both groups: -->
+
+```{r, fig.width=14, fig.height=6}
+df_summary_month_duration  <- df  %>%
+  group_by(member_casual, month_name) %>%
+  summarise(mean = round(mean(duration_minutes),2))
+
+options(repr.plot.width = 14, repr.plot.height = 6)
+
+ggplot(df_summary_month_duration, aes(x = fct_rev(month_name), y = mean, fill = month_name)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.2f", mean)), vjust = 0.5, size = 5, color = "black", position = position_fill(vjust = 2)) +
+  scale_fill_brewer(palette = "Set3") +
+  facet_wrap(~member_casual, labeller = labeller(.default = toupper), scale = "free_y") +
+  labs(x = "", y = "", title = "\n2023: Average ride duration (in minutes)", subtitle = "by Month\n") +
+  coord_flip() +
+  theme_duration
+```
+
+>Key findings::
+>
+  > - Both casual users and members show **increased average ride durations** during the warmer months (April to September) due to (we can definitely say it now 😃) more favorable weather conditions for biking
+  > - **Members** show a more **consistent average ride duration** across all months, suggesting a pattern of regular and shorter trips, likely for commuting or routine errands
+
+<br>
+
+***
+
+
+<!-- Let's now plot a combo chart using function ```plot_rides_vs_duration``` and see if there is a correlation between the variables monthly ride count and monthyl avg. duration. -->
+<!-- Please note that I am going to perform this same type of analysis later on as well with other time variables (day of the week, hour of the day) -->
+<br>
+
+
+```{r, include=FALSE}
+df_summary_month_count_duration <- df %>%
+group_by(month_name, member_casual) %>%
+summarise(count=n(), mean = round(mean(duration_minutes),2))
+
+head(df_summary_month_count_duration)
+```
+
+```{r, include=FALSE}
+df_casual_summary_month_count_duration <- subset(df_summary_month_count_duration, member_casual == "casual")
+df_member_summary_month_count_duration <- subset(df_summary_month_count_duration, member_casual == "member")
+```
+
+```{r, fig.width=18, fig.height=10}
+# Function: plot_rides_vs_duration
+# Description: creates a combo chart to display rides count (v-bar chart) vs mean duration of trip (line chart)
+# Arguments:
+# - df: DataFrame with the data to plot
+# - time: Time variable for the x-axis (e.g. month_name)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars in the plot
+# - max_count: Maximum value for the y scale (rides count)
+# - show_legend: Boolean to show or hide the legend (default: TRUE)
+# - show_y_axis: Boolean to show or hide the y axis title (default: TRUE)
+
+# ---------------------------------------------------------- #
+
+max_count_month_duration <- max(
+    max(df_casual_summary_month_count_duration$count / 1000), 
+    max(df_member_summary_month_count_duration$count / 1000)
+    )
+
+p_casual_month_duration <- plot_rides_vs_duration(
+    df_casual_summary_month_count_duration, 
+    month_name, 
+    "\n2023: Monthly rides vs mean duration\n", 
+    "CASUAL\n", 
+    "salmon", 
+    max_count_month_duration, 
+    show_legend = FALSE)
+
+p_member_month_duration <- plot_rides_vs_duration(
+    df_member_summary_month_count_duration, 
+    month_name, 
+    "", 
+    "MEMBER\n", 
+    "turquoise", 
+    max_count_month_duration, 
+    show_y_axis = FALSE)
+
+options(repr.plot.width=18,repr.plot.height=10)
+
+p_casual_month_duration + p_member_month_duration
+```
+
+<br>
+
+Let's find out if there is a correlation between number of rides and average duration of trips for both groups:
+
+<br>
+
+```{r}
+df_summary_month_count_duration %>%
+  group_by(member_casual, month_name) %>%
+  summarise(count = count, mean = mean) %>% 
+  split(.$member_casual) %>%
+  lapply(function(df) {
+    correlation <- df %>%
+      summarise(correlation = round(cor(count, mean), 3)) %>%
+      pull(correlation)
+  })
+```
+<br>
+
+>Key findings:
+>
+  > - These results indicate a **strong positive correlation** between **monthly ride counts** and average **ride duration** for both user groups
+  > - It suggests that as the **number of rides per month increases**, so does the **average duration** of those rides for both casual users and members
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 6. By Day of the Week
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<!-- Let's proceed with the analysis on single days of the week: -->
+<br>
+
+```{r, fig.width=10, fig.height=9}
+df_summary_week <- df %>%
+  group_by(member_casual, day_of_week_name) %>%
+  count()
+
+options(repr.plot.width = 10, repr.plot.height = 9)
+
+ggplot(df_summary_week, aes(x = fct_rev(day_of_week_name), y = n/1000, fill = member_casual)) +
+  geom_col(position = position_dodge(0.7), width = 0.7) +
+  geom_text(aes(label = round(n / 1000, 2), colour = member_casual), position = position_dodge(width = 0.7), vjust = 0.5, hjust = -0.1, show.legend = FALSE, size = 4.5) +
+  labs(x = "", y = "\n# of rides (.000)\n", fill = "Member type\n", title = "\n\n2023: Distribution of rides by day of the week\n") +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, max(df_summary_week$n) / 1000 + 100), breaks = seq(0, max(df_summary_week$n) / 1000 + 100, by = 100)) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_count_flipped
+```
+<br>
+
+>Key findings:
+>
+>Casual:
+>
+>- The number of trips taken by **casual** users **increases** progressively **from Monday to Friday**
+>- There is a substantial **rise** in the number of trips **on weekends**, with the highest number on **Saturday (298,913 trips)**, followed by **Sunday (245,400 trips)**. This reaffirms that casual users are **more active on weekends**, likely using the service for leisure and recreational activities
+>
+>Members:
+>
+>- Members show a **more consistent usage pattern** throughout the week, with the highest numbers of trips occurring on **Tuesday, Wednesday, and Thursday**, each surpassing 430,000 trips
+>- There is a **slight decline** in the number of trips **on Friday** (384,585 trips) compared to midweek, but still relatively high.
+>- On weekends, while the number of trips decreases, it **remains significant**, with Saturday (335,650 trips) and Sunday (295,278 trips) indicating that members still use the service considerably outside of the workweek
+
+<br>
+
+***
+
+<br>
+
+### 6.1 Weekdays vs Weekends
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- In this section, I will analyze the ride counts and average durations, comparing weekdays versus weekends: -->
+
+```{r, fig.width=10, fig.height=6}
+df_summary_weekend  <- df  %>% 
+  group_by(member_casual, weekend)  %>% 
+  summarise(count=n(),
+  avg_time = round(mean(duration_minutes),2))  %>%
+  mutate(percentage = paste0(round(100*count/sum(count),0)," %"))
+
+# Service usage plot
+pa <- ggplot(df_summary_weekend, aes(x = toupper(member_casual), y = count, fill = fct_rev(weekend))) +
+  geom_col(position = position_stack(), color = "white", linewidth = 1.5, width = 0.8) +
+  labs(x = "", y = "", fill = "Week usage: ", title = "\n2023: Weekdays vs Weekends\n", subtitle = "Service usage\n") +
+  scale_fill_brewer(palette = "Accent") +
+  geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 5) +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  theme_weekend
+
+# Average trip duration
+pb <- ggplot(df_summary_weekend, aes(x = toupper(member_casual), y = avg_time, fill = weekend)) +
+  geom_col(position = position_dodge(width = 0.9), color = "white", linewidth = 1.5, width = 0.9) +
+  labs(x = "", y = "", fill = "Week usage: ", title = "\n", subtitle = "Average trip duration (in minutes)\n") +
+  scale_fill_manual(values = c("Weekend" = "#7FC97F", "Monday to Friday" = "#BEAED4")) +
+  geom_text(aes(label = avg_time), position = position_dodge(width = 0.9), vjust = 1.5, size = 5, color = "white", fontface = "bold") + 
+  theme_weekend
+
+options(repr.plot.width = 10, repr.plot.height = 6)
+
+pa + pb + plot_layout(guides = 'collect') & theme(legend.position = 'bottom')
+```
+
+> Key findings:
+>
+> - **Members** predominantly use bikes during **weekdays** (77%), indicating that they likely use the service for **commuting and daily routines**
+>- Casual users, however, have a **slightly balanced usage** between weekdays (63%) and weekends (37%), suggesting a mix of **practical** and **leisure** use
+>- Both casual users and members tend to have **longer trips on weekends** compared to weekdays
+> - **Casual** users have significantly **longer average trip durations on weekends** (**26.6 minutes**) than on weekdays (21.28 minutes), which could be due to more leisure and recreational activities
+> - **Members** also take **longer trips on weekends** (13.88 minutes) than on weekdays (11.89 minutes), but the **increase is less pronounced** compared to casual users
+
+<br>
+
+***
+
+<br>
+
+### 6.2 VS ride duration
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Now let'sanalyze the average ride duration of trips for each day of the week, broken down by user groups: -->
+
+```{r, fig.width=12, fig.height=5}
+df_summary_day_duration  <- df  %>% 
+  group_by(member_casual, day_of_week_name) %>%
+  summarise(mean = round(mean(duration_minutes),2))
+
+options(repr.plot.width = 12, repr.plot.height = 5)
+
+ggplot(df_summary_day_duration, aes(x = fct_rev(day_of_week_name), y = mean, fill = day_of_week_name)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.2f", mean)), vjust = 0.5, size = 5, color = "black", position = position_fill(vjust = 2)) +
+  scale_fill_brewer(palette = "Set3") +
+  facet_wrap(~member_casual, labeller = labeller(.default = toupper), scale = "free_y") +
+  labs(x = "", y = "", title = "\n2023: Daily average ride duration (in minutes)", subtitle = "By Day of the week\n") +
+  coord_flip() +
+  theme_duration
+```
+<br>
+
+>Key findings:
+>
+>- **Casual** users have **longer average ride durations** compared to members, particularly on weekends. Specifically, casual users have longer rides on **Saturdays** (**26.26 minutes**) and **Sundays** (**27.01 minutes**) compared to weekdays
+>- In contrast, **members** show more **consistent ride durations across the week**, with slightly longer averages on Fridays (12.25 minutes), Saturdays (13.87 minutes), and Sundays (13.89 minutes)
+>- Overall, **weekends** see **longer ride durations for both user types**, with casual users significantly exceeding members in average ride duration per day
+
+```{r, include=FALSE}
+df_summary_day_count_duration <- df  %>% 
+  group_by(member_casual, day_of_week_name) %>%
+  summarise(count = n(), mean = round(mean(duration_minutes),2))
+
+head(df_summary_day_count_duration)
+```
+
+```{r, include=FALSE}
+df_casual_daily <- subset(df_summary_day_count_duration, member_casual == "casual")
+df_member_daily <- subset(df_summary_day_count_duration, member_casual == "member")
+```
+
+<br>
+***
+<br>
+
+```{r, fig.width=18, fig.height=10}
+# Function: plot_rides_vs_duration
+# Description: creates a combo chart to display rides count (v-bar chart) vs mean duration of trip (line chart)
+# Arguments:
+# - df: DataFrame with the data to plot
+# - time: Time variable for the x-axis (e.g. day_of_week)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars in the plot
+# - max_count: Maximum value for the y scale (rides count)
+# - show_legend: Boolean to show or hide the legend (default: TRUE)
+# - show_y_axis: Boolean to show or hide the y axis title (default: TRUE)
+
+# ---------------------------------------------------------- #
+
+max_count_day_duration <- max(
+    max(df_casual_daily$count / 1000), 
+    max(df_member_daily$count / 1000))
+
+p_casual_day_duration <- plot_rides_vs_duration(
+    df_casual_daily,
+    day_of_week_name,
+    "\n2023: Weekdays rides vs mean duration\n",
+    "CASUAL",
+    "salmon",
+    max_count_day_duration,
+    show_legend = FALSE)
+    
+p_member_day_duration <- plot_rides_vs_duration(
+    df_member_daily,
+    day_of_week_name,
+    "",
+    "MEMBER",
+    "turquoise",
+    max_count_day_duration,
+    show_y_axis = FALSE)
+
+options(repr.plot.width=18,repr.plot.height=10)
+
+p_casual_day_duration + p_member_day_duration
+```
+
+Verify the correlation:
+
+```{r}
+df_summary_day_count_duration %>%
+  group_by(member_casual, day_of_week_name) %>%
+  summarise(count = count, mean = mean) %>% 
+  split(.$member_casual) %>%
+  lapply(function(df) {
+    correlation <- df %>%
+      summarise(correlation = round(cor(count, mean), 3)) %>%
+      pull(correlation)
+  })
+```
+<br>
+>Key findings:
+>
+>**Casual Riders:**
+>
+> - The **correlation** between days of the week ride count and average duration is **0.822**
+> - This strong positive correlation suggests that **as the number of rides increases**, the **average duration** of those rides also **tends to increase**
+> - Casual riders may be engaging in **longer rides when they ride more frequently**, indicating a pattern of **recreational or use for leisure**
+>
+>**Member Riders:**
+>
+>- The **correlation** between day of the week ride count and average duration is **-0.877**
+>- This strong negative correlation indicates that **as the number of rides increases**, the **average duration** of those rides **tends to decrease**
+>- This pattern is consistent with members using the service primarily for **commuting** or **short trips**, where higher frequency corresponds with shorter ride times
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 7. By Hour
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Now we just need to analyze the ride count per **hour of the day**, let's do that: -->
+
+```{r, include=FALSE}
+df_summary_hour <- df %>%
+  group_by(hour_of_day, member_casual) %>%
+  summarise(count = n())
+
+head(df_summary_hour)
+```
+
+```{r, include=FALSE}
+# Filter data for members and casual riders
+df_member_hour <- df_summary_hour %>% filter(member_casual == "member")
+df_casual_hour <- df_summary_hour %>% filter(member_casual == "casual")
+```
+
+```{r, fig.width=18, fig.height=10}
+options(repr.plot.width = 18, repr.plot.height = 10)
+
+ggplot() +
+  
+  # line and points for member
+  geom_line(data = df_member_hour, aes(x = hour_of_day, y = count / 1000, color = "Member"), linewidth = 1.2) +
+  geom_point(data = df_member_hour, aes(x = hour_of_day, y = count / 1000, color = "Member"), size = 4) +
+
+  # line and points for casual
+  geom_line(data = df_casual_hour, aes(x = hour_of_day, y = count / 1000, color = "Casual"), linewidth = 1.2) +
+  geom_point(data = df_casual_hour, aes(x = hour_of_day, y = count / 1000, color = "Casual"), size = 4) +
+
+  labs(x = "\n\n Hour of the day\n", y = "\n\n# of rides (.000)\n\n", color = "Member Type\n", title = "\n\n2023: Distribution of rides by hour of the day\n") +
+  scale_x_continuous(breaks = seq(from = 0, to = 24, by = 2), labels = function(x) {sapply(x, format_time)}) +
+  scale_y_continuous(breaks = seq(from = 0, to = 350, by = 50)) +
+  guides(color = guide_legend(reverse = TRUE)) +
+  
+  # annotations
+  annotate("text", x = 6, y = 220, label = "Morning commute peak", size=6) +
+  annotate("curve", x = 6.5, y = 210, xend = 7.8, yend = 191, curvature = 0.2,
+           arrow = arrow(length = unit(.02, "npc"))) +
+  annotate("text", x = 20, y = 290, label = "Evening commute peak", size=6) +
+  annotate("curve", x = 19, y = 300, xend = 17.3, yend = 298  , curvature = 0.3,
+           arrow = arrow(length = unit(.02, "npc"))) +
+
+  theme_line
+```
+
+>Key findings:
+>
+>**Casual Users:**
+>
+> - The ride counts for casual users show a pattern where activity **peaks during afternoon hours** and gradually **decreases as the evening progresses**
+> - **Peak** is at **5 PM** with 145,070 rides recorded. There is a notable **decrease** in activity during **early morning hours** and **late night**
+>
+>**Member Users**:
+>
+>- Member users show distinct **peaks** that are in line with typical **commuting times**. There are prominent **peaks** at **8 AM** (187,406 rides) and **5 PM** (291,396 rides), corresponding to morning and evening commute times, as indicated in the chart
+>- This pattern suggests that most of members use the bike-sharing service for **commuting purposes**, with a significant **drop in activity** during **night hours**
+
+<br>
+
+***
+
+<br>
+
+### 7.1 VS ride duration
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=14, fig.height=10}
+df_summary_hour_duration <- df  %>% 
+  group_by(member_casual, hour_of_day)  %>%
+  mutate(hour_of_day = factor(hour_of_day)) %>%
+  summarise(mean = round(mean(duration_minutes),2))
+
+nb.cols <- 24
+mycolors <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+
+options(repr.plot.width = 14, repr.plot.height = 10)
+
+ggplot(df_summary_hour_duration, aes(x = fct_rev(hour_of_day), y = mean, fill = hour_of_day)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.2f", mean)), vjust = 0.5, size = 5, color = "black", position = position_fill(vjust = 2)) +
+  scale_fill_manual(values = mycolors) +
+  scale_x_discrete(labels = function(x) {sapply(as.numeric(x), format_time)}) +
+  facet_wrap(~member_casual, labeller = labeller(.default = toupper), scale = "free_y") +
+  labs(x = "", y = "", title ="\n2023: Average ride duration (in minutes)", subtitle = "By Hour of the day\n") +
+  coord_flip() +
+  theme_duration
+```
+
+>Key findings:
+>
+>**Casual users**:
+>
+> - The longest average ride durations occur during the **late morning** to **early afternoon** hours, peaking around **10 AM to 2 PM** (ranging from 26.78 to 28.07 minutes)
+> - There is a noticeable **dip** in average durations during the **early morning** hours (**5 AM to 7 AM**), with the shortest duration at **5 AM** (14.90 minutes)
+> - **Evening hours** show relatively **stable durations**, generally ranging from ~20 to ~21 minutes
+>
+>**Member users**:
+>
+> - **Average ride durations** remain more **consistent throughout the day** compared to casual users
+> - The **lowest** average durations for members occur in the **early morning hours** (5 AM to 6 AM), similarly to casual users
+>
+>
+>Overall, **casual** users tend to have **longer average ride durations** throughout most of the day compared to members, especially during **midday hours**. while **members** maintain **more consistent durations** with **less variability** throughout the 24-hour period
+<br>
+***
+<br>
+```{r, include=FALSE}
+df_summary_hour_count_duration <- df %>%
+  group_by(hour_of_day, member_casual) %>%
+  summarise(count = n(), mean = round(mean(duration_minutes),2))
+```
+
+```{r, include=FALSE}
+df_casual_hourly <- subset(df_summary_hour_count_duration, member_casual == "casual")
+df_member_hourly <- subset(df_summary_hour_count_duration, member_casual == "member")
+```
+
+```{r, fig.width=18, fig.height=10}
+# Function: plot_rides_vs_duration
+# Description: creates a combo chart to display rides count (v-bar chart) vs mean duration of trip (line chart)
+# Arguments:
+# - df: DataFrame with the data to plot
+# - time: Time variable for the x-axis (e.g. hour_of_day)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars in the plot
+# - max_count: Maximum value for the y scale (rides count)
+# - show_legend: Boolean to show or hide the legend (default: TRUE)
+# - show_y_axis: Boolean to show or hide the y axis title (default: TRUE)
+
+# ---------------------------------------------------------- #
+
+max_count_hour_duration <- max(
+    max(df_casual_hourly$count / 1000), 
+    max(df_member_hourly$count / 1000)
+    )
+
+p_casual_hour_duration <- plot_rides_vs_duration(
+    df_casual_hourly, 
+    hour_of_day, 
+    "\n2023: Hourly ride count vs mean duration\n", 
+    "CASUAL\n", 
+    "salmon", 
+    max_count_hour_duration, 
+    show_legend = FALSE)
+
+p_member_hour_duration <- plot_rides_vs_duration(
+    df_member_hourly, 
+    hour_of_day, 
+    "\n", 
+    "MEMBER\n", 
+    "turquoise", 
+    max_count_hour_duration, 
+    show_y_axis = FALSE)
+
+options(repr.plot.width=18,repr.plot.height=10)
+
+p_casual_hour_duration +
+scale_x_continuous(breaks = seq(from = 0, to = 24, by = 4), labels = function(x) {sapply(x, format_time)}) +  
+
+p_member_hour_duration +
+scale_x_continuous(breaks = seq(from = 0, to = 24, by = 4), labels = function(x) {sapply(x, format_time)})
+```
+<br>
+
+Verify the correlation:
+
+<br>
+```{r}
+df_summary_hour_count_duration %>%
+  group_by(member_casual, hour_of_day) %>%
+  summarise(count = count, mean = mean) %>% 
+  split(.$member_casual) %>%
+  lapply(function(df) {
+    correlation <- df %>%
+      summarise(correlation = round(cor(count, mean), 3)) %>%
+      pull(correlation)
+  })
+```
+<br>
+
+>Key findings:
+>
+>- For **casual** users ,there is a **moderate positive correlation** (**0.557**) between the number of rides by hour and average ride duration. This suggests that **as the number of rides increases**, the **average duration tends to increase as well**, indicating leisurely or recreational use where users may take longer rides when they ride more frequently
+>
+>- For **members** there is a **weaker positive correlation** (**0.230**) between ride count by hour and average duration. This indicates that while there is some tendency for longer rides when ride frequency increases, the effect is less pronounced compared to casual users
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 8. Heatmaps
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- I reckon it would be useful to have a look at ride trends using heatmaps, as they are really effective at conveying information and visually revealing patterns in ride activity over time: -->
+
+```{r, fig.width=18, fig.height=20}
+# Function: plot_heatmap
+# Description: Creates a heatmap plot to visualize ride counts based on the given x and y variables.
+# Arguments:
+# - df: DataFrame with the data to plot
+# - x_var: Variable for the x-axis (e.g. hour_of_day)
+# - y_var: Variable for the y-axis (e.g. day_of_week)
+# - title: Main title of the heatmap
+# - max_count: Maximum value for the ride count scale
+
+# ---------------------------------------------------------- #
+
+# To calculate the max_count, I use the combination that will definitely return the highest value
+max_count_heatmap <- df %>%
+  group_by(month_name, day_of_week_name, member_casual) %>% 
+  summarise(count = n()) %>%
+  pull(count) %>%
+  max()
+
+p_heatmap_weeks_vs_months <- plot_heatmap(
+  df, 
+  day_of_week_name, 
+  month_name, 
+  "\n2023: RIDE COUNT HEATMAPS\n\n\nMonth VS Day of the week\n\n", 
+  max_count_heatmap)
+
+p_heatmap_days_vs_hours <- plot_heatmap(
+  df, 
+  hour_of_day, 
+  day_of_week_name, 
+  "\n\n\nDay of the Week VS Hour of the Day\n\n", 
+  max_count_heatmap)
+
+p_heatmap_months_vs_hours <- plot_heatmap(
+  df, 
+  hour_of_day, 
+  month_name, 
+  "\n\n\nMonth VS Hour of the Day\n\n", 
+  max_count_heatmap)
+
+options(repr.plot.width=18, repr.plot.height=20)
+
+(p_heatmap_weeks_vs_months / p_heatmap_days_vs_hours / p_heatmap_months_vs_hours) + theme(plot.margin = margin(l=30, r=30))
+```
+
+>Key findings:
+>
+> - **Months VS Days of the week**: as discussed in previous section, casual tend to use bike-sharing services more frequently on weekends, possibly for leisure activities and usage is increased during warmer months. On the other hand, members show a more uniform distribution across the week, suggesting they might be using the service for daily commuting
+>
+> - **Day of the Week VS Hour of Day**: For member users, the commute peaks highlighted in the previous section primarily occur on weekdays (Monday to Friday), likely because most users use the bikes for commuting to and from work during those days. Casual users exhibit higher ride counts in the afternoon and early evening, particularly on weekends
+>
+> - **Months VS Hour by Day**: When we combine months and hours, we see that for members, the morning and evening peaks are consistent throughout the year, slightly decreasing during the colder months. For casual users, ride counts are relatively stable throughout the day across all months, with a slight increase in the afternoon hours during the summer months. The usage does not show significant peaks, suggesting more sporadic and leisure-oriented usage
+>
+> - In summary, these heatmaps reaffirm the assumption that **members** are mostly using the bike-sharing service for **commuting**, with **consistent usage patterns** throughout the week and **peak usage** during typical **commuting hours**. **Casual** users, on the other hand, seem to use the service more for **leisure or errands**, with increased usage during **weekends**
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 9. By Bike Type
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Now let's analyze what is the most popular bike type used by riders: -->
+
+```{r, fig.width=8, fig.height=7}
+options(repr.plot.width=8, repr.plot.height=7)
+
+df %>%
+  group_by(member_casual, rideable_type) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = round(count * 100 / sum(count), 0)) %>%
+  ggplot(aes(x = toupper(member_casual), y = percentage, fill = rideable_type)) +
+    geom_col(width = 0.8, colour = "white", linewidth = 1.5) +
+    geom_text(aes(label = paste0(round(percentage, 1), "%")), position = position_stack(vjust = 0.5), size = 5, color = "white", fontface = "bold") +
+    labs(title = "\n2023: What type of bike is used the most by riders?\n", x = "", y = "", fill = "Bike Type") +
+    scale_fill_brewer(palette = "Set2", direction = -1) +
+    theme_weekend
+```
+
+>Key findings:
+>
+>- Both casual users and members show a **preference for classic bikes** over electric bikes
+>- The preference for **classic bikes** is **slightly stronger among members** (65%) compared to casual users (62%)
+>- Electric bikes, while less popular than classic bikes, still account for a **significant portion** of the rides, especially among casual users (38%)
+
+<br>
+
+***
+
+<br>
+
+### 9.1 VS weekdays/weekends
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=12, fig.height=8}
+options(repr.plot.width=12, repr.plot.height=8)
+
+df %>% 
+  group_by(rideable_type, member_casual, weekend)  %>% 
+  summarise(count=n()) %>% 
+  group_by(member_casual, weekend) %>% 
+  mutate(percentage = paste0(round(100*count/sum(count),0)," %")) %>% 
+    ggplot(aes(x = fct_rev(weekend), y = count/1000, fill = fct_rev(rideable_type))) +
+      geom_col(position = "stack", color = "white", linewidth = 1.5, width = 0.9) +
+      facet_wrap(~member_casual, labeller = labeller(.default = toupper), scale = "free_y", dir="v") +
+      labs(x = "", y = "", fill = "Bike type:", title = "\n\n2023: Bike type usage", subtitle = "Weekdays vs Weekends\n") +
+      coord_flip() +
+      geom_text(aes(label = percentage), position = position_stack(vjust = 0.5), size = 5, color = "white", fontface = "bold") +
+      guides(fill = guide_legend(reverse = TRUE)) +
+      scale_fill_brewer(palette = "Set2") +
+      theme_weekend_flipped
+```
+
+>Key findings:
+>
+>- The data indicates a clear **preference for classic bikes** among both casual users and members, with a **slight increase** in this preference **on weekends**
+>- On the other hand, **Electric** bikes are more popular on **weekdays**. This suggests that electric bikes might be preferred for weekday commutes, possibly due to their convenience and speed
+
+<br>
+
+***
+
+<br>
+
+### 9.2 VS distance
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Now let's analyze the relationship between the type of bike used and the distance travelled for both member groups: -->
+
+```{r, fig.width=18, fig.height=10}
+options(repr.plot.width = 18, repr.plot.height = 10)
+
+df %>%
+  filter(round_trip == FALSE) %>%
+  ggplot(aes(x = rideable_type, y = trip_distance_km, fill = rideable_type)) +
+  geom_boxplot() +
+  facet_wrap(~member_casual, labeller = labeller(.default = toupper)) +
+  labs(
+    title = "\n2023: Distribution of Trip Distance by Rideable Type",
+    subtitle = "n.b. round trips not included\n",
+    x = "\nBike Type\n",
+    y = "\nTrip Distance (km)\n",
+    fill = "Rideable Type"
+  ) +
+  scale_x_discrete(labels = c("classic_bike" = "CLASSIC", "electric_bike" = "ELECTRIC")) +
+  scale_fill_brewer(palette = "Set2", direction = -1) +
+  scale_y_continuous(breaks = seq(0, max(df$trip_distance_km), by = 2)) +
+  theme_line + theme(legend.position = "none")
+```
+
+>Key findings:
+>
+> - Both casual and member users tend to **use electric bikes** for slightly **longer trips** compared to classic bikes. **Members**, in particular, use electric bikes for longer trips more frequently than classic bikes
+> - **Classic bikes** are used for **similar trip distances** by both **casual** and **member** users, indicating a stable usage pattern across these groups
+> - **Members** tend to take **longer trips with electric bikes** compared to casual users, suggesting that members might prefer electric bikes for their efficiency on longer trips
+> - In summary, **electric bikes are favored for longer trips**, particularly by member users, while **classic bikes** have a **consistent usage pattern** across both user types for shorter distances
+
+<br>
+
+***
+
+<br>
+
+### 9.3 VS speed
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+```{r, fig.width=10, fig.height=5}
+options(repr.plot.width=10, repr.plot.height=5)
+
+df %>% 
+  filter(round_trip == FALSE) %>% 
+  group_by(member_casual, rideable_type) %>% 
+  summarise(avg_speed = mean(trip_speed_kmph)) %>% 
+  ggplot(aes(x = member_casual, y = avg_speed, fill = member_casual)) +
+    geom_col(width = 0.99, color="white", linewidth = 1.1) +
+    facet_wrap(~rideable_type, strip.position = "bottom", labeller = labeller(.default = toupper)) +
+    labs(title = "\n2023: Average speed (km/h)", 
+    subtitle =  "n.b. round trips not included\n\n",
+    fill = "Member Type") +
+    geom_text(aes(label = comma(avg_speed)), vjust = 1.5, size = 5, color = "white", fontface = "bold") + 
+    theme_simple
+```
+
+> Key findings:
+>
+> - As is naturally the case, both user groups **travel faster** on **electric bikes** than on classic bikes on average
+> - **Members** tend to ride both classic and electric bikes at **higher speeds** than casual users: this suggest that they might be using the bikes **more efficiently**, potentially for commuting or other practical purposes where **speed is a factor**
+>- **Casual** users, with **lower average speeds**, might be using the bikes more **leisurely** or may not be as familiar with optimizing bike usage
+
+<br>
+
+<div style="border-bottom: 3px solid #1ABDFF; color: #1ABDFF;">
+</div>
+
+<br>
+
+## 10. By Station
+
+<br>
+
+<!-- Now I want to analyze in detail the stations used for the bike sharing service.
+
+First, I am creating a dataframe  ```merged_stations_all``` that combines both start and end stations, and provides information on type (start or end) and ride count for each user group. This DF will serve as the starting point for further analysis: -->
+
+```{r, include=FALSE}
+merged_stations_all <- df %>%
+  group_by(member_casual, id = start_station_id, station_name = start_station_name, lat = start_lat, lng = start_lng) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(member_casual, desc(count)) %>%
+  group_by(member_casual) %>%
+  mutate(type = "start") %>%
+  rename(station = station_name) %>%
+  bind_rows(
+    df %>%
+      group_by(member_casual, id = end_station_id, station_name = end_station_name, lat = end_lat, lng = end_lng) %>%
+      summarise(count = n(), .groups = "drop") %>%
+      arrange(member_casual, desc(count)) %>%
+      group_by(member_casual) %>%
+      mutate(type = "end") %>%
+      rename(station = station_name)
+  )
+
+head(merged_stations_all)
+```
+
+<br>
+
+### 10.1 Geographical distribution and usage
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+I intend to analyze the **geographical distribution and usage of start stations** for the year 2023, regardless of whether the rides pertain to casual or member users.
+
+<!-- To achieve this, I will create a new data frame named ```merged_stations_start```, by filtering the existing ```merged_stations_all``` to include only rows representing starting stations: -->
+
+```{r, include=FALSE}
+merged_stations_start <- merged_stations_all %>% 
+group_by(station, lat, lng, type) %>% 
+filter(type == "start") %>% 
+summarise(total_count = sum(count)) %>% 
+arrange(desc(total_count)) %>% 
+rename(count = total_count)
+
+head(merged_stations_start)
+```
+
+The aim is to represent the stations on a map using the [**leaflet**](https://ugoproto.github.io/ugo_r_doc/pdf/leaflet-cheat-sheet.pdf) library. To ensure that the representation makes sense, I first need to identify some count bins.
+
+I start by calculating the quartiles for the "count" column in the dataset. This will help me understand the distribution of the counts:
+
+```{r, echo=TRUE}
+quartiles_df <- calculate_quartiles(merged_stations_start, value_col = "count")
+quartiles_df
+```
+
+<br>
+
+***
+
+<br>
+
+Then I will define **breakpoints**  to use as **thresholds** for representing ride counts on a map.
+
+The breaks are defined as the second quartile (Q2), the third quartile (Q3), and the upper edge, which is calculated as Q3 plus 1.5 times the IQR. This last breakpoint in particular will help to identify exceptionally high ride counts.
+
+Finally I create a vector ```breaks``` with these values:
+
+```{r, echo=TRUE}
+# Inter Quartile Range = Q3 - Q1
+IQR <- quartiles_df[4,3] - quartiles_df[2,3]
+
+# Upper edge = (Q3 + IQR * 1.5)
+upper_edge <- quartiles_df[4,3] + IQR * 1.5
+
+# breaks: Q2 | Q3 | (Q3 + IQR * 1.5) |
+#         [1]| [2]|      [3]         |
+
+breaks <- round(unname(c(quartiles_df[3,3], quartiles_df[4,3], upper_edge)))
+
+breaks
+```
+
+```{r}
+map_all <- leaflet(width = "800px", height = "900px") %>%
+  addTiles() %>%
+  setView(lng = -87.62, lat = 41.875, zoom = 10) %>%
+  addCircleMarkers(data = merged_stations_start %>% filter(count >= breaks[3]),
+                  lng = ~lng,
+                  lat = ~lat,
+                  radius = ~count * 0.00003,
+                  color = "red",
+                  fill = TRUE,
+                  fillOpacity = 0.7,
+                  label = ~paste0(station, " | count: ", comma(count))) %>% 
+  addCircleMarkers(data = merged_stations_start %>% filter(count >= breaks[2], count < breaks[3]),
+                  lng = ~lng,
+                  lat = ~lat,
+                  radius = ~count * 0.00003,
+                  color = "green",
+                  fill = TRUE,
+                  fillOpacity = 0.7,
+                  label = ~paste0(station, " | count: ", comma(count))) %>% 
+  addCircleMarkers(data = merged_stations_start %>% filter(count >= breaks[1], count < breaks[2]),
+                  lng = ~lng,
+                  lat = ~lat,
+                  radius = ~count * 0.00003,
+                  color = "yellow",
+                  fill = TRUE,
+                  fillOpacity = 0.7,
+                  label = ~paste0(station, " | count: ", comma(count))) %>% 
+  addCircleMarkers(data = merged_stations_start %>% filter(count < breaks[1]),
+                  lng = ~lng,
+                  lat = ~lat,
+                  radius = ~count * 0.00003,
+                  color = "blue",
+                  fill = TRUE,
+                  fillOpacity = 0.7,
+                  label = ~paste0(station, " | count: ", comma(count)))%>%
+  addLegend("topright",
+            title = "Rides count (start stations)",
+            labels = c(
+              paste("More than", breaks[3], "rides"), 
+              paste("Between", breaks[2],"and", breaks[3], "rides"), 
+              paste("Between", breaks[1],"and", breaks[2], "rides"),
+              paste("Less than", breaks[1], "rides")),
+            colors = c("red", "green", "yellow", "blue"),
+            opacity = 0.7)
+
+# Save the map as an HTML file
+htmlwidgets::saveWidget(map_all, "map_all.html", selfcontained = TRUE)
+
+# Create the iframe with specific dimensions
+iframe_html_map_all <- htmltools::tags$iframe(src = "map_all.html", width = "800px", height = "900px")
+
+# Display the iframe in the RMarkdown document
+htmltools::browsable(iframe_html_map_all)
+```
+<br>
+
+> Key findings:
+>
+> - The map shows how ride-sharing services are utilized across different parts of Chicago, with ride counts **increasing** as we **move closer to the downtown area**, and **decreasing** towards the **suburbs**
+> 
+>**High-Density Areas (🔴)**:
+>
+>- The highest concentration of rides is found in downtown Chicago, specifically in neighborhoods like the **Loop**, **Gold Coast**, **Near South Side** and **Near West Side**. Attractions such as **Navy Pier**  and **Millenium Park** also fall within these high-density zones. These areas have high population density, numerous business centers, and tourist attractions, which contribute to the high number of rides
+>
+>**Moderate to High-Density Areas (🟢):**
+>
+> - The areas with significant ride counts extend from the downtown core to nearby neighborhoods such as **Lincoln Park**, **Lakeview**, and **South Loop**. These neighborhoods are primarly residential with substantial commercial activity, contributing to a high demsnd, though not as high as the downtown
+>
+>**Moderate-Density Areas (🟡):**
+>
+> - Yellow areas, indicating moderate ride counts, are spread across various parts of the city. These regions include outer neighborhoods such as **Irvin Park**, **Logan Square**, **Evanston**, and **Albany Park**. The ride counts in these areas are lower compared to the central areas but still reflect moderate usage of ride services
+>
+>**Low-Density Areas (🔵):**
+>
+>- The blue areas, representing the lowest ride counts, are primarily found in the **outskirts** and **suburban regions** such as **Norridge**, **Summit**, and other far-reaching suburbs. These areas have less frequent ride activity, likely due to the **lower population density** and reliance on **personal vehicles**
+
+<br>
+
+***
+
+<br>
+
+### 10.2 Top start and End Stations
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Let's now analyze more in the detail the **top 20** start and end stations for both member and casual users: -->
+
+```{r, include=FALSE}
+slice_stations <- 20
+
+merged_stations_sliced <- merged_stations_all %>%
+group_by(member_casual, type) %>% 
+slice(1:slice_stations)
+
+head(merged_stations_sliced)
+```
+
+```{r, fig.width=18, fig.height=17}
+# Function: plot_stations
+# Description: Creates a h-bar plot to visualize station data based on member type and (optionally) station type (start, end).
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars or points in the plot
+# - station_type: Optional; the type of station (default: NULL)
+
+# ---------------------------------------------------------- #
+
+p_top_start_casual <- plot_stations(
+    merged_stations_sliced, 
+    "casual", 
+    paste("\n2023: Top", slice_stations, "Start Stations\n"), 
+    "CASUAL\n", 
+    "salmon", 
+    "start")
+
+p_top_start_member <- plot_stations(
+    merged_stations_sliced, 
+    "member", 
+    "", 
+    "\nMEMBER\n", 
+    "turquoise", 
+    "start")
+
+p_top_end_casual <- plot_stations(
+    merged_stations_sliced, 
+    "casual", 
+    paste("\n\n2023: Top", slice_stations, "End Stations\n"), 
+    "CASUAL\n", 
+    "salmon", 
+    "end")
+
+p_top_end_member <- plot_stations(
+    merged_stations_sliced, 
+    "member", 
+    "", 
+    "\nMEMBER\n", 
+    "turquoise", 
+    "end")
+
+options(repr.plot.width=18,repr.plot.height=17)
+
+(p_top_start_casual + p_top_start_member) / (p_top_end_casual + p_top_end_member)
+```
+<br>
+
+>Key findings:
+>
+> Casual Riders:
+>
+> - Both start and end stations for casual riders are highly concentrated around **major tourist attractions** and **recreational areas** such as **Streeter Dr & Grand Ave**, **DuSable Lake Shore Dr**, **Michigan Ave**, and **Millennium Park**
+> - This indicates that casual riders are likely **tourists** or **occasional users** who utilize bike services to visit popular sites in the city
+>
+>Member Riders:
+>
+> - For member riders, the start and end stations are more **dispersed** and include locations like **Kingsbury St & Kinzie St**, **Clinton St & Washington Blvd**, and **Clark St & Elm St.**
+> - This pattern suggests that member riders, who are likely residents or regular users, use bike services more for **commuting and daily activities** rather than just for recreational purposes
+
+<br>
+
+***
+<br>
+
+Now let's focus on the **top 20 start stations** and see them represented on a map to better understand their **geographical distribution** and **usage patterns** by casual users and members.<br>
+Before that I want to make sure that each station is **ranked from 1 to 20** for each user group, so I can represent that information on the map:
+
+```{r, include=FALSE}
+merged_start_stations_ranked <- merged_stations_sliced %>%
+filter(type == "start") %>% 
+group_by(member_casual, type) %>% 
+slice(1:slice_stations) %>% 
+mutate(ranking = rank(-count, ties.method = "first"))
+
+head(merged_start_stations_ranked)
+```
+
+```{r}
+map_top_20_start <- leaflet(width = "800px", height = "700px") %>%
+    addTiles() %>%
+    setView(lng = -87.61, lat = 41.875, zoom = 11.4) %>%
+    addCircleMarkers(data = merged_start_stations_ranked %>% filter (member_casual == "member"),
+                    lng = ~lng,
+                    lat = ~lat,
+                    radius = ~count * 0.0005,
+                    color = "blue",
+                    fill = TRUE,
+                    fillOpacity = 0.1,
+                    label = ~paste0(station, " | count: ", comma(count), " | (", member_casual, ") | ranking: #", ranking)
+                    ) %>% 
+    addCircleMarkers(data = merged_start_stations_ranked %>% filter (member_casual == "casual"),
+                    lng = ~lng,
+                    lat = ~lat,
+                    radius = ~count * 0.0005,
+                    color = "red",
+                    fill = TRUE,
+                    fillOpacity = 0.1,
+                    label = ~paste0(station, " | count: ", comma(count), " | (", member_casual, ") | ranking: #", ranking)
+                    ) %>% 
+    addLegend(position = "topright",
+              title = "Member type",
+              colors = c("red", "blue"),
+              labels = c("casual", "member")
+              )
+
+# Save the map as an HTML file
+htmlwidgets::saveWidget(map_top_20_start, "map_top_20_start.html", selfcontained = TRUE)
+
+# Create the iframe with specific dimensions using htmltools
+iframe_html_map_top_20 <- htmltools::tags$iframe(src = "map_top_20_start.html", width = "800px", height = "700px")
+
+# Display the iframe in the RMarkdown document
+htmltools::browsable(iframe_html_map_top_20)
+```
+<br>
+
+> Key findings:
+>
+>Casual Users:
+>
+> - Most of the **top start stations** for casual users are located along the **lakefront**, including **popular tourist destinations** and **leisure spots**. Stations such as "Streeter Dr & Grand Ave," "DuSable Lake Shore Dr & Monroe St," "Michigan Ave & Oak St," and "Millennium Park" rank high in usage
+> - The concentration of start stations **near the lake** suggests that casual users primarily use the bike-sharing service for **recreational activities**, enjoying scenic views, and visiting iconic landmarks in Chicago. This pattern indicates a preference for leisure rides along the lakefront
+>
+>Members:
+>
+> - In contrast, the top start stations for members are **spread more evenly across the city** and are often located near **major intersections and transportation hubs**. Key stations include Kingsbury St & Kinzie St, Clinton St & Washington Blvd, and Clark St & Elm St
+> - This distribution implies that members, **likely locals or frequent users**, utilize the bike-sharing service for **commuting, running errands, or other daily activities**. Their preferred stations are situated in practical, central locations rather than tourist-heavy areas.
+>
+>In short, the data shows a clear **division in usage patterns** between casual users and members of the bike-sharing service in Chicago. Casual users prefer stations along the lakefront for recreational purposes, while members prefer centrally located stations for practical, daily use.
+
+<br>
+
+***
+
+<br>
+
+### 10.3 Top Routes
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+<!-- Let's now investigate on what are the **most common routes** (start station to end station) for both rider types: -->
+
+```{r, include=FALSE}
+slice_routes <- 20
+
+# Ensure the route column is correctly created
+merged_routes <- df %>%
+  group_by(member_casual, start_station_name, end_station_name, round_trip) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(member_casual, desc(count)) %>%
+  mutate(route = paste(start_station_name, "\u2192", end_station_name)) %>%
+  group_by(member_casual) %>%
+  slice(1:slice_routes)
+  
+head(merged_routes)
+```
+
+
+```{r, fig.width=14, fig.height=16}
+# Function: plot_routes
+# Description: Creates a h-bar plot to visualize the most common routes based on member type
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars
+
+# ---------------------------------------------------------- #
+
+p_routes_casual <- plot_routes(
+    merged_routes, 
+    "casual", 
+    paste("\n2023: Top", slice_routes, "Routes\n"), 
+    "CASUAL \n\n(start station \u2192 end station)\n", 
+    "salmon")
+
+p_routes_member <- plot_routes(
+    merged_routes, 
+    "member", 
+    "", 
+    "MEMBER \n\n(start station \u2192 end station)\n", 
+    "turquoise")
+
+
+options(repr.plot.width=14,repr.plot.height=16)
+
+p_routes_casual / p_routes_member
+```
+
+
+***
+
+<br>
+
+How many of the top 20 routes are **round trips**?
+<br>
+
+```{r}
+top_20_routes <- merged_routes %>% 
+group_by(member_casual) %>% 
+summarise(percentage_round_trip = percent(sum(round_trip)/slice_routes, accuracy = 0.1))
+
+print(top_20_routes)
+
+```
+<br>
+
+> Key findings:
+>
+>__Casual users__:
+>
+> - **50% of the top routes** for casual users are **round trips**. Examples include "Streeter Dr & Grand Ave → Streeter Dr & Grand Ave" and "Michigan Ave & Oak St → Michigan Ave & Oak St." This suggests that casual users often engage in **recreational rides** that start and end at the same location
+> - The **most popular route** is **"Streeter Dr & Grand Ave → Streeter Dr & Grand Ave"** with 7,910 rides, followed by "DuSable Lake Shore Dr & Monroe St → DuSable Lake Shore Dr & Monroe St" with 6,238 rides. These routes are concentrated **around the lakefront** and major Chicago **tourist attractions**, highlighting the leisure-oriented nature of casual users' rides
+>
+>__Members users__:
+>
+ >- Unlike casual users, members predominantly use the bike-sharing service for **point-to-point travel**. All top routes have different start and end stations, indicating that members use the service for **commuting, errands, and daily transportation needs**. The top route is "Ellis Ave & 60th St → University Ave & 57th St" with 5,208 rides
+> - The routes taken by members show a clear pattern of **connectivity across various parts of the city**, including "Calumet Ave & 33rd St → State St & 33rd St" and "Loomis St & Lexington St → Morgan St & Polk St," emphasizing **practical usage** rather than leisure
+>
+>In summary, the top 20 routes data for 2023 shows that **casual** users favor round trips for **leisure**, predominantly **around the lakefront**, while members use the bike-sharing service for **functional travel** across the city
+
+<br>
+
+***
+
+<br>
+
+### 10.4 User predominance
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+In this section, I aim to identify start stations that are **predominantly used** by either **casual** users or **members**, **beyond a certain threshold** of rides count. 
+
+<!-- In this code, I am setting three parameters: ```high_edge```, ```low_edge```, and ```station_materiality_threshold```:
+ - The edges (```high_edge``` and ```low_edge```) define the degree of "predominance" of usage by the member groups (casual or member)
+ - The ```station_materiality_threshold``` ensures that only stations with a minimum count of trips are considered
+ 
+I group the data by station name and coordinates, then summarize the total trip counts and the counts for casual and member users. 
+Next, I filter out stations with fewer trips than the ```station_materiality_threshold``` and calculate the percentage of trips made by casual and member users. 
+Using ```high_edge``` and ```low_edge```, I filter stations to identify those where one group significantly predominates. Finally, I label these stations based on the predominant user group and sort the results accordingly: -->
+
+```{r, include=FALSE}
+high_edge <- .7
+low_edge <- (1-high_edge)
+station_materiality_threshold <- 100
+
+most_popular <- df %>%
+  group_by(start_station_name, start_lat, start_lng) %>%
+  summarise(
+    total_count = n(),
+    count_casual = sum(member_casual == "casual"),
+    count_member = sum(member_casual == "member")
+  ) %>%
+  filter(
+    total_count > station_materiality_threshold) %>% 
+  mutate(
+    percentage_casual = count_casual / total_count,
+    percentage_member = count_member / total_count
+  ) %>%
+  filter(percentage_casual <= low_edge | percentage_casual > high_edge) %>% 
+  mutate(
+    winner = if_else(percentage_casual <= low_edge, "member", "casual"), 
+    winner_label = if_else(winner == "member", 
+                           paste("Over", high_edge*100, "%", "member"), 
+                           paste("Over", high_edge*100, "%", "casual"))
+  ) %>% 
+  arrange(winner, desc(total_count))
+
+
+head(most_popular)
+```
+
+<br>
+
+I will represent these data points on a map of Chicago using the ```plot_map_usage``` function. In this map visualization, I will not consider the trip count for each station (used only for setting a minimum materiality threshold) but focus uniquely on the usage rate of the member groups at each station:
+
+```{r, fig.width=18, fig.height=10}
+# Function: plot_map_usage
+# Description: creates a map to visualize which stations are predominantly used by each membership type (casual or member)
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership ("casual" or "member")
+# - palette: Color palette for the fill aesthetic
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+
+# ---------------------------------------------------------- #
+  
+  p_casual_start_usage <- plot_map_usage(
+    most_popular,
+    "casual",
+    "OrRd",
+    paste0("\n2023: Start stations usage by Casual and Member riders\n\n(Filter applied: rides count > ", station_materiality_threshold, ")\n"),
+    "CASUAL\n")
+
+  p_member_start_usage <- plot_map_usage(
+    most_popular,
+    "member",
+    "PuBu",
+    "",
+    "MEMBER\n")
+
+options(repr.plot.width=18,repr.plot.height=10)
+
+p_casual_start_usage + p_member_start_usage
+```
+
+>Key findings:
+>
+>- Casual riders usage is mostly concentrated in **downtown Chicago** and some **southern neighborhoods**
+>- Member riders' usage is more **dispersed across the city** but predominantly in the **northern** and **central regions of Chicago**, suggesting a possible higher density of long-term residents or commuters in these areas
+
+<br>
+
+***
+
+<br>
+
+In the next visualization, I want to focus on bike stations with a materiality threshold **greater than 100 rides** and where the predominance of each member group (casual or member) is **more than 70%**. Additionally, this time we will visualize the **ride count** as the **size of the circles** on the map, providing a clear representation of the volume of usage at each station:
+<br>
+```{r, fig.width=18, fig.height=10}
+# Function: plot_map_domination
+# Description: Creates a plot to visualize the most used stations based on member type.
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+
+# ---------------------------------------------------------- #
+
+p_casual_predominant <- plot_map_domination(
+    most_popular,
+    "casual", 
+    paste0("2023: Start stations dominated by Casual or Member users\n\n(Filters applied: stations rides count > ", station_materiality_threshold,", dominance > ", high_edge * 100, "%)\n\n"))
+
+p_member_predominant <- plot_map_domination(
+    most_popular,
+    "member", 
+    "") 
+
+options(repr.plot.width=18,repr.plot.height=10)
+
+p_casual_predominant + p_member_predominant
+```
+
+<br>
+
+>Key findings:
+>
+>- The central part of Chicago, especially around downtown and the **Navy Pier** area is predominantly used by **casual** riders. This could be due to **tourism** or **short-term visitors**
+>- The distribution of member-dominated stations is more **extensive across the city**, implying that members tend to use the bike-sharing service more consistently throughout various **neighborhoods** of the city
+
+<br>
+
+******
+
+<br>
+
+### 10.5 Most used stations (start OR end)
+
+<br>
+
+[⬅️ **Back to Summary**](#summary)
+
+<br>
+
+For this analysis, I aimed to investigate the **most frequently used stations**, specifically those that are most often utilized as **starting OR ending points** for trips. While the available data do not provide information on the number or identity of bicycle users, identifying the most used stations from this perspective is still valuable. By potentially cross-referencing this data with user information (if and when available), the accuracy of the analysis could be enhanced. 
+
+To do this, I will aggregate the data to count how many times each individual station was used as a starting or ending point. Therefore, if there are $n$ total trips, the total number of observations (combined departures and arrivals) will be $2n$:
+
+```{r, include=FALSE}
+slice_most_freq_stations <- 20
+
+most_freq_used_stations <- df %>%
+  select(station = start_station_name, lat = start_lat, lng = start_lng, member_casual) %>%
+  bind_rows(df %>%
+              select(station = end_station_name, lat = end_lat, lng = end_lng, member_casual)) %>%
+  group_by(member_casual, station, lat, lng) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(member_casual, desc(count)) %>%
+  group_by(member_casual) %>%
+  slice(1:slice_most_freq_stations)
+```
+
+```{r, fig.width=14, fig.height=16}
+# Function: plot_stations
+# Description: Creates a h-bar plot to visualize station data based on member type and (optionally) station type (start, end).
+# Arguments:
+# - data: DataFrame with the data to plot
+# - member_type: The type of membership (i.e. casual, member)
+# - title: Main title of the plot
+# - subtitle: Subtitle of the plot
+# - fill_color: Fill color for the bars or points in the plot
+# - station_type: Optional; the type of station (default: NULL)
+
+# ---------------------------------------------------------- #
+
+p_casual_most_frequent <- plot_stations(
+    most_freq_used_stations, 
+    "casual", 
+    paste("\n2023: Top", slice_most_freq_stations, "most frequently used stations (as starting OR ending point)\n"), 
+    "CASUAL\n", 
+    "salmon")
+
+p_member_most_frequent <- plot_stations(
+    most_freq_used_stations, 
+    "member", 
+    "", 
+    "MEMBER\n", 
+    "turquoise")
+
+
+options(repr.plot.width=14,repr.plot.height=16)
+
+p_casual_most_frequent / p_member_most_frequent
+```
+
+<br>
+
+***
+
+<br>
+
+The impression is that a **small percentage of stations** accounts for an **extremely large portion of all departures and arrivals** for each member group. First, let's verify **how much** the identified **top 20** most frequently used stations **account for** in the **total departures and arrivals** for each member type.
+
+```{r}
+# calculate  casual total rides ("n")
+total_casual <- df %>%
+  filter(member_casual == "casual") %>% 
+  group_by(member_casual) %>%
+  summarise(count = n()) %>%
+  pull(count)
+
+# calculate member total rides ("n")
+total_member <- df %>%
+  filter(member_casual == "member") %>% 
+  group_by(member_casual) %>%
+  summarise(count = n()) %>%
+  pull(count)
+
+# ---------------------------------------------------------- #
+
+# calculate casual unique stations used as starting OR ending points
+casual_total_stations <- merged_stations_all %>%
+  filter(member_casual == "casual") %>%
+  summarise(unique_stations = n_distinct(station)) %>% 
+  pull(unique_stations)
+
+# calculate member unique stations used as starting OR ending points
+member_total_stations <- merged_stations_all %>%
+  filter(member_casual == "member") %>%
+  summarise(unique_stations = n_distinct(station)) %>% 
+  pull(unique_stations)
+
+# ---------------------------------------------------------- #
+
+# summarise results. Please note that observations are divided by "2n"
+
+# Casual
+paste(
+  "Top", slice_most_freq_stations, "stations used by CASUAL users as start OR end (~", 
+  percent(slice_most_freq_stations/casual_total_stations), " of all Casual stations) account for ~",
+   percent(sum(most_freq_used_stations$count[most_freq_used_stations$member_casual == "casual"]) /(total_casual * 2)),
+   "of all recorded Casual departure or arrivals"
+   )
+
+# Member
+paste(
+  "Top", slice_most_freq_stations, "stations used by MEMBER users as start OR end (~", 
+  percent(slice_most_freq_stations/member_total_stations), " of all Member stations) account for ~", 
+  percent(sum(most_freq_used_stations$count[most_freq_used_stations$member_casual == "member"]) /(total_member * 2)),
+  "of all recorded Member departure or arrivals"
+  )
+```
+
+<br>
+
+***
+
+<br>
+
+We have **confirmed** that a **few stations** account for a **large number of observations**. Since the company's goal is to convert casual riders into member riders, let's **focus on casual riders**.
+
+I want to understand how many departures and arrivals correspond to a certain number of stations using a **treemap** visualization. We will use the **top 30, 50, and 100 stations** as parameters:
+
+```{r, fig.width=12, fig.height=25}
+# ---------------------------------------------------------- #
+
+# Function: slice_df_freq
+# Description: processes dataframe merged_stations_all to filter and summarize the count of casual members at various stations. It performs several transformations on the data, such as grouping, counting, renaming, sorting, and coloring, based on a specified frequency slice
+# Arguments:
+# - slice_freq: An integer that determines how many top stations should be highlighted in red
+
+# ---------------------------------------------------------- #
+
+# Function: plot_treemap
+# Description: creates a treemap visualization from the dataframe produced by slice_df_freq, showing the distribution of counts across stations. The treemap highlights top stations in red and others in grey.
+# Arguments:
+# df: The input dataframe containing station information, count, and color.
+# title: The title of the treemap plot
+# subtitle: The subtitle of the treemap plot
+
+# ---------------------------------------------------------- #
+
+top_number <- c(30, 50, 100)
+titles <- c("\n\n2023: CASUAL stations used for start OR end of trip analysis\n", "\n", "\n")
+plots <- list()
+
+for (i in seq_along(top_number)) { 
+  sliced_df <- slice_df_freq(top_number[i])  # sliced_df function is used to filter and summarize data based on top_number[i]
+  total_red <- sum(sliced_df$count[sliced_df$color == "red"])  # total count of stations to be colored in red
+  
+  plots[[i]] <- plot_treemap(
+    sliced_df,
+    titles[i], 
+    paste0(
+      "\n\nTop ", 
+      top_number[i], " stations used by CASUAL users as start OR end (~",
+      percent(top_number[i] / casual_total_stations, accuracy = 1), 
+      " of all Casual stations)\n",
+      "account for ~",      
+      percent(total_red / sum(sliced_df$count), accuracy = 1), 
+      " of all recorded Casual departures and arrivals\n"
+    )
+  )
+}
+
+options(repr.plot.width=12, repr.plot.height=25)
+
+plots[[1]] / plots[[2]] / plots[[3]]
+```
+
+<br>
+
+> Key findings:
+>
+>- These results indicates that a relatively **small number of stations significantly contribute to the overall volume of trips**. Few stations can be considered critical nodes within the bike-sharing network
+>- Concentrating **advertising efforts** on these high-usage stations can enhance campaign effectiveness by **reaching a larger number of users**
+>- Investing in **improvements** and **maintenance** at these key locations can enhance the **user experience** and potentially **increase service usage**
+>- **Cross-referencing** these data with other user information (when available) can provide a more detailed understanding of usage dynamics, helping to further optimize the service
+
