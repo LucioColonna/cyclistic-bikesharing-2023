@@ -18,6 +18,7 @@ knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```{r libraries and setup, include=FALSE}
 # import libraries
 packages <- c(
+  "kableExtra",
   "formatR",
   "tidyverse",
   "treemapify",
@@ -32,7 +33,6 @@ packages <- c(
   "IRdisplay",
   "sf"
   )
-
 
 for (pkg in packages) {
   suppressPackageStartupMessages(library(pkg, character.only = TRUE))
@@ -159,7 +159,7 @@ skimmer <- skim_without_charts(df) %>%
     select(skim_variable, class, total_available, everything()) %>%
     arrange(factor(skim_variable, levels = colnames(df)))
   
-  View(skimmer)
+  kableExtra::kable(skimmer)
 ```
 
 ```{r plot available data, echo=FALSE, fig.width=14, fig.height=8}
