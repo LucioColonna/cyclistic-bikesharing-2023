@@ -15,10 +15,10 @@ Lucio Colonna
 
 <span style="color: #0047AB;">📌 <strong>Data Source</strong></span>
 
-- The dataset is segmented into [12 .csv files](#1dataframes-import),
+- The dataset is segmented into [12 .csv files](#1-dataframes-import),
   with each file corresponding to a specific month in the year 2023
-- The [consistency](#2check-consistency-of-dfs) of the dataframes was
-  verified, and they were [merged](#3dataframes-merge) into a single
+- The [consistency](#2-check-consistency-of-dfs) of the dataframes was
+  verified, and they were [merged](#3-dataframes-merge) into a single
   dataset for further processing
 
 ------------------------------------------------------------------------
