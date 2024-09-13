@@ -163,7 +163,7 @@ knitr::kable(skimmer)
 >
 > - Between **~15% and ~16%** of values on `start_station_name`,
 >   `start_station_id`, `end_station_name` and `end_station_id` are
->   empty Also we have some NA values in the `end_lat` and `end_lng`
+>   empty. Also there are some NA values in the `end_lat` and `end_lng`
 >   columns
 >
 > - If this was a project in the real world, I would (have to 😕)
