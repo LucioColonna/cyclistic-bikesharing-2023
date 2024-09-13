@@ -1041,16 +1041,20 @@ discuss the matter with the relevant stakeholders).
 
 ``` r
 rows_dropped_negative_duration <- df %>%
-    filter(duration_minutes <= 0) %>%
-    summarize(n_row = n()) %>%
-    pull(n_row)
+  filter(duration_minutes <= 0) %>%
+  summarize(n_row = n()) %>%
+  pull(n_row)
 
 # Keep only positive durations
 df <- subset(df, duration_minutes > 0)
 
-paste0("Rows dropped due to negative duration: ", comma(rows_dropped_negative_duration),
-    " (", round(100 * rows_dropped_negative_duration/original_df_rows,
-        3), "% of raw dataframe)")
+paste0(
+  "Rows dropped due to negative duration: ", 
+  comma(rows_dropped_negative_duration), 
+  " (", 
+  round(100 * rows_dropped_negative_duration / original_df_rows, 3), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Rows dropped due to negative duration: 550 (0.01% of raw dataframe)"
@@ -1091,17 +1095,21 @@ accordingly:
 
 ``` r
 rows_dropped_outliers <- df %>%
-    filter(duration_minutes < 1 | duration_minutes > 1440) %>%
-    summarise(n_row = n()) %>%
-    pull(n_row)
+  filter(duration_minutes < 1 | duration_minutes > 1440) %>%
+  summarise(n_row = n()) %>%
+  pull(n_row)
 
-# filter DF
+# Filter DF
 df <- df %>%
-    filter(duration_minutes >= 1, duration_minutes <= 1440)
+  filter(duration_minutes >= 1, duration_minutes <= 1440)
 
-paste0("Rows dropped due to outliers: ", comma(rows_dropped_outliers),
-    " (", round(100 * rows_dropped_outliers/original_df_rows,
-        2), " % of raw dataframe)")
+paste0(
+  "Rows dropped due to outliers: ", 
+  comma(rows_dropped_outliers), 
+  " (", 
+  round(100 * rows_dropped_outliers / original_df_rows, 2), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Rows dropped due to outliers: 85,498 (1.49 % of raw dataframe)"
@@ -1134,16 +1142,20 @@ km/h**). Therefore, I will filter out all trips with speeds higher than
 
 ``` r
 rows_dropped_impossible_speed <- df %>%
-    filter(trip_speed_kmph > 32) %>%
-    summarise(n_row = n()) %>%
-    pull(n_row)
+  filter(trip_speed_kmph > 32) %>%
+  summarise(n_row = n()) %>%
+  pull(n_row)
 
-# filter Df
+# Filter DF
 df <- subset(df, trip_speed_kmph <= 32)
 
-paste0("Rows dropped due to impossible speed: ", comma(rows_dropped_impossible_speed),
-    " (", round(100 * rows_dropped_impossible_speed/original_df_rows,
-        2), " % of raw dataframe)")
+paste0(
+  "Rows dropped due to impossible speed: ", 
+  comma(rows_dropped_impossible_speed), 
+  " (", 
+  round(100 * rows_dropped_impossible_speed / original_df_rows, 2), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Rows dropped due to impossible speed: 1,827 (0.03 % of raw dataframe)"
@@ -1188,12 +1200,27 @@ Let’s count how many rows in total were dropped during the whole process
 phase and examine the dimension of the df:
 
 ``` r
-rows_dropped_df <- data.frame(dropping_reason = c("Empty or NA Values",
-    "Bad Station IDs/Names", "Duplicated Coordinates", "Negative trip duration",
-    "Trip duration outliers", "Impossible speed"), n_rows_dropped = c(rows_dropped_empty_NA_rows,
-    rows_dropped_bad_names, duplicated_coordinates, rows_dropped_negative_duration,
-    rows_dropped_outliers, rows_dropped_impossible_speed)) %>%
-    mutate(percentage_on_raw_DF = percent(n_rows_dropped/original_df_rows))
+rows_dropped_df <- data.frame(
+  dropping_reason = c(
+    "Empty or NA Values",
+    "Bad Station IDs/Names", 
+    "Duplicated Coordinates", 
+    "Negative trip duration",
+    "Trip duration outliers", 
+    "Impossible speed"
+  ), 
+  n_rows_dropped = c(
+    rows_dropped_empty_NA_rows,
+    rows_dropped_bad_names, 
+    duplicated_coordinates, 
+    rows_dropped_negative_duration,
+    rows_dropped_outliers, 
+    rows_dropped_impossible_speed
+  )
+) %>%
+  mutate(
+    percentage_on_raw_DF = percent(n_rows_dropped / original_df_rows)
+  )
 
 print(rows_dropped_df)
 ```
@@ -1209,9 +1236,13 @@ print(rows_dropped_df)
 ``` r
 rows_dropped_total <- original_df_rows - nrow(df)
 
-paste0("Total rows dropped during the whole data processing phase: ",
-    comma(rows_dropped_total), " (", round(100 * rows_dropped_total/original_df_rows,
-        2), " % of raw dataframe)")
+paste0(
+  "Total rows dropped during the whole data processing phase: ", 
+  comma(rows_dropped_total), 
+  " (", 
+  round(100 * rows_dropped_total / original_df_rows, 2), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Total rows dropped during the whole data processing phase: 1,554,444 (27.18 % of raw dataframe)"
