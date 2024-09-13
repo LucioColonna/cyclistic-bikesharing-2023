@@ -563,11 +563,21 @@ dataframe called `all_coords`.
 
 ``` r
 all_coords <- df %>%
-    select(station_id = start_station_id, station_name = start_station_name,
-        lat = start_lat, lng = start_lng) %>%
-    bind_rows(df %>%
-        select(station_id = end_station_id, station_name = end_station_name,
-            lat = end_lat, lng = end_lng))
+  select(
+    station_id = start_station_id, 
+    station_name = start_station_name,
+    lat = start_lat, 
+    lng = start_lng
+  ) %>%
+  bind_rows(
+    df %>%
+      select(
+        station_id = end_station_id, 
+        station_name = end_station_name,
+        lat = end_lat, 
+        lng = end_lng
+      )
+  )
 ```
 
 This time I reckon that it is more appropriate to use the `mean` of
@@ -622,22 +632,29 @@ interventions to verify if I have resolved the issues.
 
 ``` r
 check_problems_coords <- function(dataframe) {
-    check_by_station_id <- dataframe %>%
-        mutate(conc_coordinates = paste(mean_lat, mean_lng, sep = ", ")) %>%
-        group_by(station_id) %>%
-        filter(n() > 1)
+  check_by_station_id <- dataframe %>%
+    mutate(conc_coordinates = paste(mean_lat, mean_lng, sep = ", ")) %>%
+    group_by(station_id) %>%
+    filter(n() > 1)
 
-    check_by_conc_coordinates <- dataframe %>%
-        mutate(conc_coordinates = paste(mean_lat, mean_lng, sep = ", ")) %>%
-        group_by(conc_coordinates) %>%
-        filter(n() > 1)
+  check_by_conc_coordinates <- dataframe %>%
+    mutate(conc_coordinates = paste(mean_lat, mean_lng, sep = ", ")) %>%
+    group_by(conc_coordinates) %>%
+    filter(n() > 1)
 
-    problem_check_coords <- data.frame(Problem = c("Problem #3",
-        "Problem #4"), Description = c("IDs with multiple sets of coordinates",
-        "Sets of coordinates with multiple IDs"), Total = c(length(unique(check_by_station_id$station_id)),
-        length(unique(check_by_conc_coordinates$conc_coordinates))))
+  problem_check_coords <- data.frame(
+    Problem = c("Problem #3", "Problem #4"),
+    Description = c(
+      "IDs with multiple sets of coordinates",
+      "Sets of coordinates with multiple IDs"
+    ),
+    Total = c(
+      length(unique(check_by_station_id$station_id)),
+      length(unique(check_by_conc_coordinates$conc_coordinates))
+    )
+  )
 
-    return(problem_check_coords)
+  return(problem_check_coords)
 }
 
 check_problems_coords(all_coords_mean)
@@ -707,10 +724,12 @@ Let’s see how many rides correspond to those station IDs:
 
 ``` r
 duplicated_coordinates <- df %>%
-    filter(start_station_id %in% c(526, 853, 899, 901) | end_station_id %in%
-        c(526, 853, 899, 901)) %>%
-    summarize(n_rows = n()) %>%
-    pull(n_rows)
+  filter(
+    start_station_id %in% c(526, 853, 899, 901) | 
+    end_station_id %in% c(526, 853, 899, 901)
+  ) %>%
+  summarize(n_rows = n()) %>%
+  pull(n_rows)
 
 duplicated_coordinates
 ```
@@ -724,8 +743,10 @@ the dataset
 
 ``` r
 df <- df %>%
-    filter(!start_station_id %in% c(526, 853, 899, 901), !end_station_id %in%
-        c(526, 853, 899, 901))
+  filter(
+    !start_station_id %in% c(526, 853, 899, 901), 
+    !end_station_id %in% c(526, 853, 899, 901)
+  )
 ```
 
 <br>
@@ -783,16 +804,17 @@ to be dropped, therefore I am going to hardcode the coordinates in the
 DF, to make sure that they are consistent:
 
 ``` r
-# New cooords values
+# New coordinates values
 new_lat <- 41.78
 new_lng <- -87.59
 
 df <- df %>%
-    mutate(start_lat = if_else(start_station_id == "653B", new_lat,
-        start_lat), start_lng = if_else(start_station_id == "653B",
-        new_lng, start_lng), end_lat = if_else(end_station_id ==
-        "653B", new_lat, end_lat), end_lng = if_else(end_station_id ==
-        "653B", new_lng, end_lng))
+  mutate(
+    start_lat = if_else(start_station_id == "653B", new_lat, start_lat),
+    start_lng = if_else(start_station_id == "653B", new_lng, start_lng),
+    end_lat = if_else(end_station_id == "653B", new_lat, end_lat),
+    end_lng = if_else(end_station_id == "653B", new_lng, end_lng)
+  )
 ```
 
 <br>
@@ -813,13 +835,26 @@ Let’s now verify if the actions taken above have solved the problems:
 
 ``` r
 all_coords_mean_update <- df %>%
-    select(station_id = start_station_id, station_name = start_station_name,
-        lat = start_lat, lng = start_lng) %>%
-    bind_rows(df %>%
-        select(station_id = end_station_id, station_name = end_station_name,
-            lat = end_lat, lng = end_lng)) %>%
-    group_by(station_id, station_name) %>%
-    summarise(mean_lat = mean(lat), mean_lng = mean(lng))
+  select(
+    station_id = start_station_id, 
+    station_name = start_station_name,
+    lat = start_lat, 
+    lng = start_lng
+  ) %>%
+  bind_rows(
+    df %>%
+      select(
+        station_id = end_station_id, 
+        station_name = end_station_name,
+        lat = end_lat, 
+        lng = end_lng
+      )
+  ) %>%
+  group_by(station_id, station_name) %>%
+  summarise(
+    mean_lat = mean(lat), 
+    mean_lng = mean(lng)
+  )
 
 check_problems_coords(all_coords_mean_update)
 ```
@@ -833,16 +868,20 @@ DF:
 
 ``` r
 all_coords_mean_update_clean <- all_coords_mean_update %>%
-    select(station_id, mean_lat, mean_lng)
+  select(station_id, mean_lat, mean_lng)
 
 df <- df %>%
-    left_join(all_coords_mean_update_clean, by = c(start_station_id = "station_id")) %>%
-    rename(start_lat_mean = mean_lat, start_lng_mean = mean_lng) %>%
-    left_join(all_coords_mean_update_clean, by = c(end_station_id = "station_id")) %>%
-    rename(end_lat_mean = mean_lat, end_lng_mean = mean_lng) %>%
-    mutate(start_lat = start_lat_mean, start_lng = start_lng_mean,
-        end_lat = end_lat_mean, end_lng = end_lng_mean) %>%
-    select(-start_lat_mean, -start_lng_mean, -end_lat_mean, -end_lng_mean)
+  left_join(all_coords_mean_update_clean, by = c(start_station_id = "station_id")) %>%
+  rename(start_lat_mean = mean_lat, start_lng_mean = mean_lng) %>%
+  left_join(all_coords_mean_update_clean, by = c(end_station_id = "station_id")) %>%
+  rename(end_lat_mean = mean_lat, end_lng_mean = mean_lng) %>%
+  mutate(
+    start_lat = start_lat_mean, 
+    start_lng = start_lng_mean,
+    end_lat = end_lat_mean, 
+    end_lng = end_lng_mean
+  ) %>%
+  select(-start_lat_mean, -start_lng_mean, -end_lat_mean, -end_lng_mean)
 ```
 
 <br>
