@@ -1165,7 +1165,7 @@ Verify the correlation:
 <!-- Now let's analyze what is the most popular bike type used by riders: -->
 
 <p align="center">
-  <img src="./img/img_23.png" width="60%">
+  <img src="./img/img_23.png" width="50%">
 </p>
 
 <br>
