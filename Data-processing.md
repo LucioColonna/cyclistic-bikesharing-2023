@@ -117,35 +117,39 @@ information on data availability.
 
 ``` r
 skimmer <- skim_without_charts(df) %>%
-    select(skim_variable, n_missing, character.empty) %>%
-    rename(`NA` = n_missing, empty = character.empty) %>%
-    mutate(class = skim_without_charts(df)$skim_type, empty = if_else(is.na(empty),
-        0, empty), `NA` = if_else(is.na(`NA`), 0, `NA`), total_empty_or_NA = `NA` +
-        empty, total_available = nrow(df) - total_empty_or_NA,
-        percentage_not_available = round(total_empty_or_NA/nrow(df) *
-            100, 2), percentage_available = 100 - percentage_not_available) %>%
-    select(skim_variable, class, total_available, everything()) %>%
-    arrange(factor(skim_variable, levels = colnames(df)))
+  select(skim_variable, n_missing, character.empty) %>%
+  rename(`NA` = n_missing, empty = character.empty) %>%
+  mutate(
+    class = skim_without_charts(df)$skim_type, 
+    empty = if_else(is.na(empty), 0, empty),
+    `NA` = if_else(is.na(`NA`), 0, `NA`),
+    total_empty_or_NA = `NA` + empty, 
+    total_available = nrow(df) - total_empty_or_NA,
+    p_not_available = round(total_empty_or_NA/nrow(df) * 100, 2), 
+    p_available = 100 - p_not_available
+  ) %>%
+  select(skim_variable, class, total_available, everything()) %>%
+  arrange(factor(skim_variable, levels = colnames(df)))
 
-kableExtra::kable(skimmer)
+knitr::kable(skimmer)
 ```
 <br>
 
-| skim_variable      | class     | total_available |   NA |  empty | total_empty_or_NA | percentage_not_available | percentage_available |
-|:-------------------|:----------|----------------:|-----:|-------:|------------------:|-------------------------:|---------------------:|
-| ride_id            | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| rideable_type      | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| started_at         | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| ended_at           | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| start_station_name | character |         4844161 |    0 | 875716 |            875716 |                    15.31 |                84.69 |
-| start_station_id   | character |         4844029 |    0 | 875848 |            875848 |                    15.31 |                84.69 |
-| end_station_name   | character |         4790675 |    0 | 929202 |            929202 |                    16.25 |                83.75 |
-| end_station_id     | character |         4790534 |    0 | 929343 |            929343 |                    16.25 |                83.75 |
-| start_lat          | numeric   |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| start_lng          | numeric   |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
-| end_lat            | numeric   |         5712887 | 6990 |      0 |              6990 |                     0.12 |                99.88 |
-| end_lng            | numeric   |         5712887 | 6990 |      0 |              6990 |                     0.12 |                99.88 |
-| member_casual      | character |         5719877 |    0 |      0 |                 0 |                     0.00 |               100.00 |
+| skim_variable      | class     | total_available |   NA |  empty | total_empty_or_NA | p_not_available | p_available |
+|:-------------------|:----------|----------------:|-----:|-------:|------------------:|----------------:|------------:|
+| ride_id            | character |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| rideable_type      | character |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| started_at         | character |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| ended_at           | character |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| start_station_name | character |         4844161 |    0 | 875716 |            875716 |           15.31 |       84.69 |
+| start_station_id   | character |         4844029 |    0 | 875848 |            875848 |           15.31 |       84.69 |
+| end_station_name   | character |         4790675 |    0 | 929202 |            929202 |           16.25 |       83.75 |
+| end_station_id     | character |         4790534 |    0 | 929343 |            929343 |           16.25 |       83.75 |
+| start_lat          | numeric   |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| start_lng          | numeric   |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
+| end_lat            | numeric   |         5712887 | 6990 |      0 |              6990 |            0.12 |       99.88 |
+| end_lng            | numeric   |         5712887 | 6990 |      0 |              6990 |            0.12 |       99.88 |
+| member_casual      | character |         5719877 |    0 |      0 |                 0 |            0.00 |      100.00 |
 
 <br>
 
@@ -198,9 +202,14 @@ Let’s find out how many rows we have dropped:
 
 ``` r
 rows_dropped_empty_NA_rows <- original_df_rows - nrow(df)
-paste0("Rows dropped due to NA or empty values: ", comma(rows_dropped_empty_NA_rows),
-    " (", round(rows_dropped_empty_NA_rows * 100/original_df_rows,
-        2), "% of raw dataframe)")
+
+paste0(
+  "Rows dropped due to NA or empty values: ", 
+  comma(rows_dropped_empty_NA_rows),
+  " (", 
+  round(rows_dropped_empty_NA_rows * 100 / original_df_rows, 2), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Rows dropped due to NA or empty values: 1,388,170 (24.27% of raw dataframe)"
@@ -231,10 +240,15 @@ by replacing `docked_bike` with `classic_bike`.
 
 ``` r
 df <- df %>%
-    mutate(rideable_type = if_else(rideable_type == "docked_bike",
-        "classic_bike", rideable_type))
+  mutate(
+    rideable_type = if_else(
+      rideable_type == "docked_bike", 
+      "classic_bike", 
+      rideable_type
+    )
+  )
 
-unique(df$rideable_type)  # check if replace was succesful
+unique(df$rideable_type)  # check if replace was successful
 ```
 
     ## [1] "electric_bike" "classic_bike"
@@ -299,9 +313,14 @@ Let’s see how many rows we have dropped due to inconsistent names:
 
 ``` r
 rows_dropped_bad_names <- nrow_before_filtering_id_names - nrow(df)
-paste0("Rows dropped due bad IDs/names: ", comma(rows_dropped_bad_names),
-    " (", round(rows_dropped_bad_names * 100/original_df_rows,
-        2), "% of raw dataframe)")
+
+paste0(
+  "Rows dropped due to bad IDs/names: ", 
+  comma(rows_dropped_bad_names),
+  " (", 
+  round(rows_dropped_bad_names * 100 / original_df_rows, 2), 
+  "% of raw dataframe)"
+)
 ```
 
     ## [1] "Rows dropped due bad IDs/names: 78,388 (1.37% of raw dataframe)"
@@ -325,9 +344,10 @@ This will allow me to analyze the relationship between station IDs and
 names across all trips.
 
 ``` r
-all_stations <- bind_rows(select(df, station_id = start_station_id,
-    station_name = start_station_name), select(df, station_id = end_station_id,
-    station_name = end_station_name))
+all_stations <- bind_rows(
+  select(df, station_id = start_station_id, station_name = start_station_name),
+  select(df, station_id = end_station_id, station_name = end_station_name)
+)
 
 head(all_stations)
 ```
@@ -365,23 +385,31 @@ resolved the issues.
 
 ``` r
 check_problems_stations <- function(dataframe) {
-    by_station_id <- dataframe %>%
-        group_by(station_id, station_name) %>%
-        summarise(count = n()) %>%
-        filter(n() > 1) %>%
-        arrange(station_id, desc(count))
+  by_station_id <- dataframe %>%
+    group_by(station_id, station_name) %>%
+    summarise(count = n()) %>%
+    filter(n() > 1) %>%
+    arrange(station_id, desc(count))
 
-    by_station_name <- dataframe %>%
-        group_by(station_name, station_id) %>%
-        summarise(count = n()) %>%
-        filter(n() > 1) %>%
-        arrange(station_name, desc(count))
+  by_station_name <- dataframe %>%
+    group_by(station_name, station_id) %>%
+    summarise(count = n()) %>%
+    filter(n() > 1) %>%
+    arrange(station_name, desc(count))
 
-    problem_check <- data.frame(Problem = c("Problem #1", "Problem #2"),
-        Description = c("IDs with multiple station names", "Station names with multiple IDs"),
-        Total = c(length(unique(by_station_id$station_id)), length(unique(by_station_name$station_name))))
+  problem_check <- data.frame(
+    Problem = c("Problem #1", "Problem #2"),
+    Description = c(
+      "IDs with multiple station names", 
+      "Station names with multiple IDs"
+    ),
+    Total = c(
+      length(unique(by_station_id$station_id)), 
+      length(unique(by_station_name$station_name))
+    )
+  )
 
-    return(problem_check)
+  return(problem_check)
 }
 
 check_problems_stations(all_stations)
@@ -422,19 +450,20 @@ available, otherwise keeps the original station name.
 
 ``` r
 mode_stations <- all_stations %>%
-    group_by(station_id) %>%
-    summarise(station_name = Mode(station_name))
+  group_by(station_id) %>%
+  summarise(station_name = Mode(station_name))
 
 # Update DF
 df <- df %>%
-    left_join(mode_stations, by = c(start_station_id = "station_id")) %>%
-    rename(start_station_name_mode = station_name) %>%
-    left_join(mode_stations, by = c(end_station_id = "station_id")) %>%
-    rename(end_station_name_mode = station_name) %>%
-    mutate(start_station_name = coalesce(start_station_name_mode,
-        start_station_name), end_station_name = coalesce(end_station_name_mode,
-        end_station_name)) %>%
-    select(-start_station_name_mode, -end_station_name_mode)
+  left_join(mode_stations, by = c(start_station_id = "station_id")) %>%
+  rename(start_station_name_mode = station_name) %>%
+  left_join(mode_stations, by = c(end_station_id = "station_id")) %>%
+  rename(end_station_name_mode = station_name) %>%
+  mutate(
+    start_station_name = coalesce(start_station_name_mode, start_station_name),
+    end_station_name = coalesce(end_station_name_mode, end_station_name)
+  ) %>%
+  select(-start_station_name_mode, -end_station_name_mode)
 ```
 
 <br>
@@ -464,19 +493,20 @@ same approach applied as in problem \#1:
 
 ``` r
 mode_ids <- all_stations %>%
-    group_by(station_name) %>%
-    summarise(station_id = Mode(station_id))
+  group_by(station_name) %>%
+  summarise(station_id = Mode(station_id))
 
 # Update DF
 df <- df %>%
-    left_join(mode_ids, by = c(start_station_name = "station_name")) %>%
-    rename(start_station_id_mode = station_id) %>%
-    left_join(mode_ids, by = c(end_station_name = "station_name")) %>%
-    rename(end_station_id_mode = station_id) %>%
-    mutate(start_station_id = coalesce(start_station_id_mode,
-        start_station_id), end_station_id = coalesce(end_station_id_mode,
-        end_station_id)) %>%
-    select(-start_station_id_mode, -end_station_id_mode)
+  left_join(mode_ids, by = c(start_station_name = "station_name")) %>%
+  rename(start_station_id_mode = station_id) %>%
+  left_join(mode_ids, by = c(end_station_name = "station_name")) %>%
+  rename(end_station_id_mode = station_id) %>%
+  mutate(
+    start_station_id = coalesce(start_station_id_mode, start_station_id),
+    end_station_id = coalesce(end_station_id_mode, end_station_id)
+  ) %>%
+  select(-start_station_id_mode, -end_station_id_mode)
 ```
 
 <br>
