@@ -18,7 +18,7 @@ knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```{r libraries and setup, include=FALSE}
 # import libraries
 packages <- c(
-  "kableExtra",
+  "knitr",
   "formatR",
   "tidyverse",
   "treemapify",
@@ -153,28 +153,28 @@ skimmer <- skim_without_charts(df) %>%
       `NA` = if_else(is.na(`NA`), 0, `NA`),
       total_empty_or_NA = `NA` + empty,
       total_available = nrow(df) - total_empty_or_NA,
-      percentage_not_available = round(total_empty_or_NA / nrow(df) * 100, 2),
-      percentage_available = 100 - percentage_not_available
+      p_not_available = round(total_empty_or_NA / nrow(df) * 100, 2),
+      p_available = 100 - p_not_available
     ) %>%
     select(skim_variable, class, total_available, everything()) %>%
     arrange(factor(skim_variable, levels = colnames(df)))
   
-  kableExtra::kable(skimmer)
+  knitr::kable(skimmer)
 ```
 
 ```{r plot available data, echo=FALSE, fig.width=14, fig.height=8}
 # Transform the skim data to long format and set factor levels for variables
 skimmer_long <- skimmer %>%
-  mutate(has_missing = percentage_not_available > 0) %>%
+  mutate(has_missing = p_not_available > 0) %>%
   pivot_longer(
-    cols = c(percentage_not_available, percentage_available),
+    cols = c(p_not_available, p_available),
     names_to = "status",
     values_to = "percentage"
   ) %>%
   mutate(
-    status = factor(status, levels = c("percentage_available", "percentage_not_available")),
+    status = factor(status, levels = c("p_available", "p_not_available")),
     label = if_else(
-      status == "percentage_not_available" & has_missing, 
+      status == "p_not_available" & has_missing, 
       paste0("<span style='color:red;'><b>", skim_variable, "</b></span>"),
       skim_variable
     ),
@@ -196,7 +196,7 @@ ggplot(skimmer_long, aes(x = skim_variable, y = percentage, fill = status)) +
   ) +
   scale_fill_manual(
     # to make sure colors match the factor level order
-    values = c("percentage_available" = "lightgreen", "percentage_not_available" = "red"),
+    values = c("p_available" = "lightgreen", "p_not_available" = "red"),
     labels = c("% available", "% not available")
   ) +
   guides(fill = guide_legend(reverse = FALSE)) + # Ensure order is not reversed
