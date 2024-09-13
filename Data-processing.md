@@ -1029,7 +1029,10 @@ duration, which naturally cannot be possible. Therefore, I will be
 dropping those lines (also in this case it should be appropriate to
 discuss the matter with the relevant stakeholders).
 
+<br>
+
 ------------------------------------------------------------------------
+<br>
 
 ### 8.1 Remove negative duration trips
 
@@ -1059,7 +1062,11 @@ paste0(
 
     ## [1] "Rows dropped due to negative duration: 550 (0.01% of raw dataframe)"
 
+<br>
+
 ------------------------------------------------------------------------
+
+<br>
 
 ### 8.2 Remove outliers
 
@@ -1113,6 +1120,8 @@ paste0(
 ```
 
     ## [1] "Rows dropped due to outliers: 85,498 (1.49 % of raw dataframe)"
+
+<br>
 
 <br>
 
@@ -1183,6 +1192,8 @@ will not be needed for the analysis phase:
 df <- df %>%
     select(-ride_id, -started_at, -ended_at)
 ```
+
+<br>
 
 ------------------------------------------------------------------------
 
