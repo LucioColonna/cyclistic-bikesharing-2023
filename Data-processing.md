@@ -899,9 +899,11 @@ df <- df %>%
 <br>
 
 I now want to check if there any other unpleasant surprises in my
-DF.<br> Specifically, I want to: - check if there are any duplications
-in the `ride_id` column - verify that `member_casual` column contains
-only the values `member` and `casual`
+DF.<br> 
+Specifically, I want to: 
+
+- check if there are any duplications in the `ride_id` column
+- verify that `member_casual` column contains only the values `member` and `casual`
 
 ``` r
 sum(duplicated(df$ride_id))
