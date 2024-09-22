@@ -644,7 +644,7 @@ included): <br>
 <!-- Let's break down the ride count by month and member groups: -->
 
 <p align="center">
-  <img src="./img/img_11.png" width="80%">
+  <img src="./img/img_11.png" width="60%">
 </p>
 
 <br>
